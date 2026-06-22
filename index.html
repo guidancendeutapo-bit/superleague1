@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Super League Admin Portal</title>
+    <title>Super League Interactive Admin Portal</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
@@ -19,6 +19,9 @@
             --accent-yellow: #eab308;
             --border-color: #1e293b;
             --danger-red: #ef4444;
+            --gold-glow: rgba(234, 179, 8, 0.12);
+            --red-glow: rgba(239, 68, 68, 0.08);
+            --sidebar-width: 240px;
         }
 
         * {
@@ -31,22 +34,98 @@
         body {
             background-color: var(--bg-color);
             color: var(--text-color);
-            padding: 24px;
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
 
-        /* ADMIN WELCOME BANNER */
-        .welcome-admin-banner {
-            display: none;
-            background: linear-gradient(90deg, #f97316, #eab308);
-            color: #05070a;
-            text-align: center;
-            padding: 10px;
-            font-weight: 800;
-            font-size: 16px;
-            letter-spacing: 1px;
-            border-radius: 6px;
-            margin-bottom: 16px;
-            box-shadow: 0 4px 15px rgba(234, 179, 8, 0.2);
+        /* --- SIDEBAR NAVIGATION --- */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--card-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 24px 16px;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 99;
+        }
+
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 32px;
+            padding-left: 8px;
+        }
+
+        .logo-branding-svg {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, #06b6d4, #10b981);
+            padding: 6px;
+            border-radius: 8px;
+            box-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-text { font-size: 18px; font-weight: 800; letter-spacing: 1px; }
+        .logo-text span { color: var(--accent-cyan); }
+
+        .sidebar-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            list-style: none;
+            flex: 1;
+        }
+
+        .menu-item button {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 12px 16px;
+            border-radius: 8px;
+            text-align: left;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .menu-item button:hover {
+            background-color: rgba(255, 255, 255, 0.03);
+            color: #fff;
+        }
+
+        .menu-item.active button {
+            background-color: rgba(6, 182, 212, 0.1);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(6, 182, 212, 0.15);
+        }
+
+        .sidebar-footer {
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* --- MAIN VIEW PORT --- */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 24px 32px;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
         }
 
         header {
@@ -58,11 +137,19 @@
             margin-bottom: 24px;
         }
 
-        .logo-area { display: flex; align-items: center; gap: 10px; }
-        .logo-icon { background-color: var(--accent-green); padding: 8px; border-radius: 8px; font-weight: bold; }
-        .logo-text { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
-        .logo-text span { color: var(--accent-cyan); }
-        .header-controls { display: flex; align-items: center; gap: 12px; }
+        .welcome-admin-banner {
+            display: none;
+            background: linear-gradient(90deg, #f97316, #eab308);
+            color: #05070a;
+            text-align: center;
+            padding: 10px;
+            font-weight: 800;
+            font-size: 14px;
+            letter-spacing: 1px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 15px rgba(234, 179, 8, 0.2);
+        }
 
         .sandbox-badge {
             background-color: rgba(234, 179, 8, 0.1);
@@ -76,7 +163,6 @@
             align-items: center;
             gap: 6px;
         }
-
         .sandbox-dot { width: 8px; height: 8px; background-color: var(--accent-yellow); border-radius: 50%; }
 
         .admin-btn {
@@ -88,257 +174,395 @@
             cursor: pointer;
             font-weight: 600;
         }
-
         .admin-btn.logged-in { background-color: var(--accent-orange); color: #fff; border-color: var(--accent-orange); }
 
-        .container { display: grid; grid-template-columns: 1.8fr 1.2fr; gap: 24px; margin-bottom: 24px; }
-        .left-column, .right-column { display: flex; flex-direction: column; gap: 24px; }
-
-        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-        .header-actions-group { display: flex; gap: 8px; }
-        
-        .action-accent-btn {
-            background-color: #1e293b;
-            color: #fff;
-            border: 1px solid var(--border-color);
-            padding: 6px 12px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            border-radius: 4px;
-            transition: all 0.2s ease;
+        /* --- PAGES AND LAYOUT SYSTEM --- */
+        .app-page {
+            display: none;
         }
-        .action-accent-btn:hover { background-color: #1a222f; border-color: var(--accent-cyan); }
+        .app-page.active {
+            display: block;
+        }
 
+        .grid-two-columns {
+            display: grid;
+            grid-template-columns: 1.25fr 0.75fr;
+            gap: 24px;
+        }
+        @media (max-width: 1100px) {
+            .grid-two-columns { grid-template-columns: 1fr; }
+        }
+
+        .card-wrapper { background-color: var(--card-bg); border-radius: 8px; padding: 20px; border: 1px solid var(--border-color); margin-bottom: 24px; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
         h2 { font-size: 18px; display: flex; align-items: center; gap: 8px; color: #fff; }
         h2::before { content: ''; display: inline-block; width: 4px; height: 18px; background-color: var(--accent-cyan); border-radius: 2px; }
         .sync-text { font-size: 12px; color: var(--text-muted); }
 
-        .card-wrapper { background-color: var(--card-bg); border-radius: 8px; padding: 20px; border: 1px solid var(--border-color); }
+        /* --- DAILY/SCHEDULES BLOCK --- */
+        .daily-fixture-section-lbl {
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: bold;
+            color: var(--accent-cyan);
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            border-bottom: 1px dashed var(--border-color);
+            padding-bottom: 4px;
+            margin-top: 12px;
+        }
+        .daily-fixture-section-lbl.upcoming {
+            color: var(--text-muted);
+            margin-top: 18px;
+        }
 
+        /* --- MINI TOP LEADERS --- */
+        .mini-leaders-flex-container {
+            display: flex;
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .mini-leader-card {
+            flex: 1;
+            background: #070c14;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .mini-leader-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .mini-leader-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .mini-leader-stat {
+            font-size: 13px;
+            font-weight: bold;
+            color: var(--accent-yellow);
+        }
+
+        /* --- TABLE STANDINGS --- */
         table { width: 100%; border-collapse: collapse; text-align: left; }
-        th { color: var(--text-muted); font-size: 12px; text-transform: uppercase; padding-bottom: 12px; font-weight: 600; }
-        td { padding: 14px 0; border-bottom: 1px solid #1e293b; font-size: 14px; }
+        th { color: var(--text-muted); font-size: 11px; text-transform: uppercase; padding-bottom: 12px; font-weight: 700; letter-spacing: 0.5px; }
+        td { padding: 14px 6px; border-bottom: 1px solid #1e293b; font-size: 14px; }
         tr:last-child td { border-bottom: none; }
+
+        tr.first-place-row td { background-color: var(--gold-glow); color: var(--accent-yellow); border-bottom: 1px solid rgba(234, 179, 8, 0.3); }
+        tr.last-place-row td { background-color: var(--red-glow); color: var(--danger-red); border-bottom: 1px solid rgba(239, 68, 68, 0.2); }
 
         .pos-num {
             display: inline-flex; justify-content: center; align-items: center; width: 24px; height: 24px;
             border-radius: 4px; font-weight: bold; font-size: 12px; background-color: rgba(16, 185, 129, 0.1);
             color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.2);
         }
-
+        .trend-icon { margin-left: 4px; font-size: 10px; }
+        .trend-up { color: var(--accent-green); }
+        .trend-down { color: var(--danger-red); }
+        .trend-same { color: var(--text-muted); opacity: 0.6; }
         .col-center { text-align: center; }
-        .col-green { color: var(--accent-green); font-weight: 600; }
+        .col-green { color: var(--accent-green); font-weight: 700; }
 
-        .squads-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .squad-card { background: #0b1520; border: 1px solid var(--border-color); border-radius: 6px; padding: 16px; }
-        .squad-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-weight: 600; font-size: 14px; }
-        .squad-marker { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: var(--accent-cyan); margin-right: 6px; }
-        .player-count-badge { background: rgba(6, 182, 212, 0.1); color: var(--accent-cyan); padding: 2px 8px; border-radius: 4px; font-size: 11px; border: 1px solid rgba(6, 182, 212, 0.2); }
-        .squad-desc { font-size: 12px; color: var(--text-muted); list-style: none; }
-        .squad-desc li { padding: 3px 0; display: flex; justify-content: space-between; }
-
-        .match-filters-box {
-            background-color: #0b1520;
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 18px;
+        /* FORM MICRO-BADGES */
+        .form-trend-flex-container { display: flex; justify-content: center; gap: 4px; }
+        .form-pill-badge {
+            width: 22px; height: 22px; font-size: 11px; font-weight: 800; border-radius: 4px;
+            display: inline-flex; align-items: center; justify-content: center; color: #fff; text-transform: uppercase;
         }
-        .filter-row-top, .filter-row-bottom { display: flex; width: 100%; gap: 10px; align-items: center; }
+        .form-pill-badge.win  { background-color: #10b981; }
+        .form-pill-badge.draw { background-color: #64748b; }
+        .form-pill-badge.loss { background-color: #ef4444; }
 
+        /* --- MATCH CENTER FILTER BOXES --- */
+        .match-filters-box { background-color: #0b1520; border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+        .filter-row-top, .filter-row-bottom { display: flex; width: 100%; gap: 10px; align-items: center; }
         .search-wrapper-container { position: relative; flex: 1; }
         .search-input-box { width: 100%; background-color: #05070a; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px 10px 34px; color: #fff; font-size: 13px; outline: none; }
         .search-icon-inside { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 13px; }
-
+        
         .filter-btn-group { display: flex; background-color: #05070a; padding: 4px; border-radius: 8px; border: 1px solid var(--border-color); gap: 4px; }
-        .action-mini-btn { background-color: transparent; border: none; color: var(--text-muted); padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .action-mini-btn { background-color: transparent; border: none; color: var(--text-muted); padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
         .action-mini-btn.active { background-color: var(--accent-cyan); color: #05070a; font-weight: 700; }
+        .header-actions-group { display: flex; gap: 8px; }
+        .action-accent-btn { background-color: #1e293b; color: #fff; border: 1px solid var(--border-color); padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 4px; }
 
-        .show-all-btn { background-color: #1e293b; color: #fff; border: 1px solid var(--border-color); padding: 9px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-        .show-all-btn:hover { border-color: var(--accent-cyan); background-color: #141e2e; }
-
-        .fixture-wrapper-row { display: flex; align-items: stretch; gap: 8px; margin-bottom: 14px; }
+        /* --- STABLE FIXTURES & SCORE DISPLAY GRID ROWS --- */
+        .fixture-wrapper-row { display: flex; flex-direction: column; margin-bottom: 14px; }
+        .fixture-inner-container { display: flex; align-items: stretch; gap: 8px; width: 100%; }
         
-        .fixture-card { 
-            flex: 1; 
-            background-color: #070c14; 
-            border: 1px dashed #1e293b; 
-            border-radius: 12px; 
-            padding: 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: border-color 0.2s ease, background-color 0.2s ease;
-        }
-        .fixture-card:hover {
-            border-color: var(--accent-cyan);
-            background-color: #0b1119;
-        }
+        .fixture-card { flex: 1; background-color: #070c14; border: 1px dashed #1e293b; border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; }
+        .fixture-card:hover { border-color: var(--accent-cyan); background-color: #0b1119; }
+        .fixture-header-meta { font-size: 11px; color: var(--accent-green); font-weight: 700; margin-bottom: 10px; background: rgba(16, 185, 129, 0.05); padding: 4px 8px; border-radius: 4px; display: inline-block; }
         
-        .fixture-header-meta { 
-            font-size: 12px; 
-            color: var(--accent-green); 
-            font-weight: 700; 
-            margin-bottom: 16px; 
-            background: rgba(16, 185, 129, 0.05); 
-            padding: 6px 12px; 
-            border-radius: 6px; 
-            display: inline-block;
-            letter-spacing: 0.5px;
-        }
+        .match-main-flex { display: flex; justify-content: space-between; align-items: center; font-size: 14px; gap: 12px; width: 100%; }
+        .match-team-section { flex: 1; font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .match-team-section.home-align { text-align: right; }
+        .match-team-section.away-align { text-align: left; }
         
-        .match-main-flex { display: flex; justify-content: center; align-items: center; font-size: 15px; margin-bottom: 16px; gap: 20px; }
-        .match-main-flex .team-name-lbl { font-weight: 600; width: 35%; }
-        .match-main-flex .team-name-lbl.home-align { text-align: right; }
-        .match-main-flex .team-name-lbl.away-align { text-align: left; }
-
-        .vs-badge-widget { background-color: rgba(30, 41, 59, 0.6); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: bold; }
-        .status-badge { background-color: rgba(16, 185, 129, 0.1); color: var(--accent-green); font-size: 10px; padding: 3px 8px; border-radius: 4px; font-weight: bold; margin-left: 8px; vertical-align: middle; }
+        .score-row-display { font-weight: 800; font-size: 16px; color: #fff; background: #05070a; padding: 4px 14px; border-radius: 4px; border: 1px solid var(--border-color); letter-spacing: 2px; text-align: center; min-width: 75px; }
+        .vs-badge-widget { background-color: rgba(30, 41, 59, 0.6); border: 1px solid var(--border-color); padding: 4px 12px; border-radius: 4px; color: var(--text-muted); font-size: 11px; min-width: 50px; text-align: center; }
+        .status-badge { background-color: rgba(16, 185, 129, 0.1); color: var(--accent-green); font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-left: 6px; vertical-align: middle; }
         .status-badge.unplayed { background-color: rgba(100, 116, 139, 0.15); color: var(--text-muted); }
-        
-        .enter-score-btn { width: 100%; background: linear-gradient(90deg, #10b981, #06b6d4); color: #05070a; border: none; padding: 12px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 10px; }
-        .enter-score-btn.edit-mode { background: #1a222f; color: #fff; border: 1px solid var(--border-color); }
-        .delete-fixture-btn { background-color: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; width: 46px; display: flex; justify-content: center; align-items: center; cursor: pointer; color: var(--danger-red); font-size: 15px; }
-        .delete-fixture-btn:hover { background-color: var(--danger-red); color: #fff; }
 
-        .score-row-display { font-weight: 800; font-size: 18px; color: #fff; background: #05070a; padding: 6px 18px; border-radius: 6px; border: 1px solid var(--border-color); letter-spacing: 4px; display: inline-block; }
+        .enter-score-btn { width: 100%; background: linear-gradient(90deg, #10b981, #06b6d4); color: #05070a; border: none; padding: 8px; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer; margin-top: 8px; }
+        .enter-score-btn.edit-mode { background: #1a222f; color: #fff; border: 1px solid var(--border-color); }
+        .delete-fixture-btn { background-color: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; width: 40px; display: flex; justify-content: center; align-items: center; cursor: pointer; color: var(--danger-red); }
+
+        /* --- PREMIER LEAGUE STYLE SCORER EVENT SUBPANEL --- */
+        .pl-style-events-panel {
+            display: none;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+            background: #05070a;
+            border-radius: 6px;
+            padding: 10px;
+        }
+        .pl-style-events-panel.active {
+            display: block;
+        }
+        .pl-columns-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .pl-team-events-col {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 12px;
+            color: #fff;
+        }
+        .pl-team-events-col.home-side {
+            text-align: right;
+        }
+        .pl-team-events-col.away-side {
+            text-align: left;
+            border-left: 1px dashed var(--border-color);
+            padding-left: 16px;
+        }
+        .pl-event-line {
+            margin-bottom: 2px;
+            font-size: 12px;
+        }
+        .pl-event-subtext {
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        /* --- SQUADS & LEADERBOARDS --- */
+        .squads-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        @media (max-width: 768px) { .squads-grid { grid-template-columns: 1fr; } }
+        .squad-card { background: #0b1520; border: 1px solid var(--border-color); border-radius: 8px; }
+        .squad-title-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; font-weight: 600; font-size: 14px; cursor: pointer; }
+        .squad-title-row:hover { background-color: rgba(255, 255, 255, 0.04); }
+        .squad-marker { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: var(--accent-cyan); margin-right: 8px; }
+        .player-count-badge { background: rgba(6, 182, 212, 0.1); color: var(--accent-cyan); padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+
+        /* SEARCH RESULTS LIST FOR PLAYERS SQUAD */
+        .player-search-results-list { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+        .player-search-result-item { background: #0b1520; border: 1px dashed var(--border-color); border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
 
         .leaderboard-tabs { display: flex; background-color: var(--bg-color); padding: 4px; border-radius: 6px; margin-bottom: 16px; border: 1px solid var(--border-color); gap: 4px; }
-        .tab-btn { flex: 1; background: transparent; border: none; color: var(--text-muted); padding: 8px; font-size: 11px; font-weight: 600; cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .tab-btn { flex: 1; background: transparent; border: none; color: var(--text-muted); padding: 8px; font-size: 12px; font-weight: 600; cursor: pointer; border-radius: 4px; }
         .tab-btn.active { background-color: #1a222f; color: #fff; }
         .tab-btn.active.gold { color: var(--accent-yellow); }
-        .tab-btn.active.assist { color: var(--accent-cyan); }
-        .tab-btn.active.own { color: var(--danger-red); }
+        .leaderboard-row { display: flex; justify-content: space-between; padding: 10px 12px; border-bottom: 1px dashed var(--border-color); font-size: 13px; }
+        .leaderboard-row.top-tier-highlight { background-color: var(--gold-glow); border: 1px solid rgba(234, 179, 8, 0.3); color: var(--accent-yellow); }
 
-        .leaderboard-list { list-style: none; font-size: 13px; }
-        .leaderboard-row { display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px dashed var(--border-color); }
-        .empty-state-notice { text-align: center; color: var(--text-muted); font-size: 13px; padding: 24px 0; }
-
-        .admin-panel-card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 24px; display: none; margin-top: 24px;}
-        .admin-panel-card.visible { display: block; }
-        .panel-header-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 20px; }
-        
+        /* --- ADMIN CONFIG LAYER WORKSPACE --- */
+        .admin-panel-card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; display: none; }
+        .admin-panel-card.visible { display: block; margin-top: 24px; }
         .panel-tab-pill-box { display: flex; background: var(--bg-color); padding: 4px; border-radius: 6px; gap: 4px; border: 1px solid var(--border-color); }
         .pill-btn { background: transparent; border: none; color: var(--text-muted); padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; border-radius: 4px; }
         .pill-btn.active { background: var(--accent-green); color: #000; }
-        .pill-btn.active.stats-variant { background-color: var(--accent-green); color: #000; font-weight: bold; }
-
-        .panel-workspace-grid { display: grid; grid-template-columns: 1fr 1.8fr; gap: 24px; }
-        
-        .form-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 8px; letter-spacing: 0.5px; }
-        .input-stack { display: flex; flex-direction: column; gap: 10px; }
+        .panel-workspace-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; margin-top: 16px; }
+        .form-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 6px; }
         .text-field-widget, .select-dropdown-widget { width: 100%; background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px 12px; color: #fff; outline: none; font-size: 13px; }
-        
-        .register-action-btn { width: 100%; background-color: var(--accent-green); color: #000; border: none; padding: 12px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 13px; margin-top: 4px; }
-        .btn-cancel { background: #334155; color: #fff; cursor: pointer; border: none; padding: 12px; border-radius: 6px; font-weight: 700; font-size: 13px; width: 100%; }
-
+        .register-action-btn { width: 100%; background-color: var(--accent-green); color: #000; border: none; padding: 12px; border-radius: 6px; font-weight: 700; cursor: pointer; margin-top: 4px; }
         .management-list { list-style: none; max-height: 220px; overflow-y: auto; }
         .management-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--bg-color); border-radius: 6px; margin-bottom: 8px; border: 1px solid var(--border-color); font-size: 13px; }
         .item-action-links { display: flex; gap: 12px; font-size: 11px; }
-        .action-link { cursor: pointer; font-weight: 600; }
-        .action-link.rename { color: var(--accent-cyan); }
-        .action-link.delete { color: var(--danger-red); }
+        .action-link.rename { color: var(--accent-cyan); cursor: pointer; }
+        .action-link.delete { color: var(--danger-red); cursor: pointer; }
+        .modifier-controls { display: flex; align-items: center; gap: 4px; }
+        .stat-badge-info { font-size: 10px; color: var(--text-muted); background: var(--card-bg); padding: 2px 4px; border-radius: 4px; }
+        .modifier-btn { width: 18px; height: 18px; border-radius: 4px; border: none; background: #1e293b; color: #fff; font-size: 11px; cursor: pointer; }
 
-        .modifier-controls { display: flex; align-items: center; gap: 6px; }
-        .stat-badge-info { font-size: 11px; color: var(--text-muted); background: var(--card-bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color); }
-        .modifier-btn { width: 20px; height: 20px; border-radius: 4px; border: none; background: #1e293b; color: #fff; font-size: 12px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
-        .modifier-btn:hover { background: var(--accent-cyan); color: #000; }
-
+        /* --- MODAL LAYERS --- */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 7, 10, 0.85); display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 1000; }
         .modal-overlay.active { opacity: 1; pointer-events: auto; }
-        .admin-modal { background: #0b1119; border: 1px solid var(--border-color); border-radius: 12px; width: 420px; padding: 24px; position: relative; }
+        .admin-modal { background: #0b1119; border: 1px solid var(--border-color); border-radius: 12px; width: 440px; padding: 24px; position: relative; }
         .close-modal-btn { position: absolute; top: 15px; right: 15px; background: transparent; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; }
-        
         .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 12px; color: #fff; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
-        .modal-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
-        
         .modal-password-input { width: 100%; background: #05070a; border: 2px solid var(--accent-green); color: #fff; padding: 12px; border-radius: 6px; font-size: 15px; text-align: center; outline: none; letter-spacing: 3px; margin-bottom: 16px; }
-        .authorize-btn { width: 100%; background: linear-gradient(90deg, #10b981, #06b6d4); color: #05070a; border: none; padding: 12px; border-radius: 6px; font-size: 15px; font-weight: 700; cursor: pointer; text-align: center; }
-    
-        .match-event-row { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 8px; align-items: center; margin-bottom: 8px; background: #05070a; padding: 6px; border-radius: 6px; font-size: 12px; }
-        .match-event-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .stat-input-small { width: 100%; background: #0b1119; border: 1px solid var(--border-color); color: #fff; padding: 4px; border-radius: 4px; text-align: center; }
-
-        .public-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; background: #05070a; padding: 14px; border-radius: 8px; border: 1px solid var(--border-color); }
-        .public-team-column { display: flex; flex-direction: column; gap: 8px; }
-        .public-team-column.right-align { text-align: right; border-left: 1px dashed var(--border-color); padding-left: 16px; }
-        .stat-event-indicator { font-size: 12px; color: #fff; margin-bottom: 4px; display: block;}
-        .stat-event-indicator sub { color: var(--text-muted); font-size: 10px; margin-left: 4px; }
-        .public-score-hero { font-size: 32px; font-weight: 900; letter-spacing: 4px; text-align: center; margin: 12px 0; color: var(--accent-cyan); }
+        .authorize-btn { width: 100%; background: linear-gradient(90deg, #10b981, #06b6d4); color: #05070a; border: none; padding: 12px; border-radius: 6px; font-size: 14px; font-weight: 700; cursor: pointer; }
+        .popup-roster-list { list-style: none; max-height: 250px; overflow-y: auto; }
+        .popup-roster-list li { padding: 10px 0; display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255, 255, 255, 0.05); font-size: 14px; }
+        
+        .match-event-row { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 6px; align-items: center; margin-bottom: 6px; background: #05070a; padding: 6px; border-radius: 6px; font-size: 12px; }
+        .stat-input-small { width: 100%; background: #0b1119; border: 1px solid var(--border-color); color: #fff; padding: 4px; text-align: center; border-radius: 4px; }
+        .empty-state-notice { text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; }
     </style>
 </head>
 <body>
 
-    <div class="welcome-admin-banner" id="adminWelcomeBanner">
-        👋 Welcome Guidance!! Premium League Write Capabilities Activated.
-    </div>
-
-    <header>
-        <div class="logo-area">
-            <div class="logo-icon">🏆</div>
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <div class="logo-branding-svg">
+                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20 45 L35 25 L50 40 L65 25 L80 45 L75 75 L25 75 Z" fill="#05070a"/>
+                    <path d="M50 15 L58 30 L75 32 L62 43 L66 60 L50 50 L34 60 L38 43 L25 32 L42 30 Z" fill="#ffffff"/>
+                    <circle cx="50" cy="70" r="6" fill="#06b6d4"/>
+                    <circle cx="30" cy="45" r="4" fill="#10b981"/>
+                    <circle cx="70" cy="45" r="4" fill="#10b981"/>
+                </svg>
+            </div>
             <div class="logo-text">SUPER <span>LEAGUE</span></div>
         </div>
-        <div class="header-controls">
+
+        <ul class="sidebar-menu">
+            <li class="menu-item active" id="nav-dash" onclick="switchAppPage('dash')"><button>⚽ Dashboard Overview</button></li>
+            <li class="menu-item" id="nav-table" onclick="switchAppPage('table')"><button>📊 Standings & Stats</button></li>
+            <li class="menu-item" id="nav-matches" onclick="switchAppPage('matches')"><button>📅 Match Center</button></li>
+            <li class="menu-item" id="nav-squads" onclick="switchAppPage('squads')"><button>👥 Team Squads</button></li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <button class="admin-btn" style="width:100%;" id="adminToggle" onclick="handleAuthAction()">🔐 Admin Login</button>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="welcome-admin-banner" id="adminWelcomeBanner">
+            👋 Welcome Guidance!! Premium League Write Capabilities Activated.
+        </div>
+
+        <header>
+            <div>
+                <h1 style="font-size: 22px; font-weight: 700;" id="pageMainHeading">Dashboard Overview</h1>
+                <p style="color: var(--text-muted); font-size: 13px; margin-top: 2px;">Tournament tracking management dashboard system.</p>
+            </div>
             <div class="sandbox-badge"><div class="sandbox-dot"></div>Cloud Synchronized System</div>
-            <button class="admin-btn" id="adminToggle" onclick="handleAuthAction()">🔐 Admin Login</button>
-        </div>
-    </header>
+        </header>
 
-    <div class="container">
-        <div class="left-column">
-            <div class="card-wrapper">
-                <div class="section-header">
-                    <h2>League Standings</h2>
-                    <span class="sync-text">Real-time Cloud Sync</span>
+        <div id="page-dash" class="app-page active">
+            <div class="grid-two-columns">
+                <div>
+                    <div class="card-wrapper">
+                        <div class="section-header">
+                            <h2>League Standings</h2>
+                            <span class="sync-text">Live Standings</span>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Pos</th>
+                                    <th>Club</th>
+                                    <th class="col-center">P</th>
+                                    <th class="col-center">W</th>
+                                    <th class="col-center">D</th>
+                                    <th class="col-center">L</th>
+                                    <th class="col-center">GF</th>
+                                    <th class="col-center">GD</th>
+                                    <th class="col-center" style="color:var(--accent-green)">PTS</th>
+                                    <th class="col-center" style="width: 85px;">Form</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashStandingsBody"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="mini-leaders-flex-container">
+                        <div class="mini-leader-card">
+                            <span class="mini-leader-title">🔥 Top Goal Scorer</span>
+                            <span class="mini-leader-name" id="dashTopScorerName">-</span>
+                            <span class="mini-leader-stat" id="dashTopScorerStat">0 Goals</span>
+                        </div>
+                        <div class="mini-leader-card">
+                            <span class="mini-leader-title">👟 Top Assist Provider</span>
+                            <span class="mini-leader-name" id="dashTopAssistorName">-</span>
+                            <span class="mini-leader-stat" id="dashTopAssistorStat">0 Assists</span>
+                        </div>
+                    </div>
                 </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Pos</th>
-                            <th>Club</th>
-                            <th class="col-center">P</th>
-                            <th class="col-center">W</th>
-                            <th class="col-center">D</th>
-                            <th class="col-center">L</th>
-                            <th class="col-center">GF</th>
-                            <th class="col-center">GD</th>
-                            <th class="col-center" style="color:var(--accent-green)">PTS</th>
-                        </tr>
-                    </thead>
-                    <tbody id="standingsBody"></tbody>
-                </table>
-            </div>
 
-            <div class="card-wrapper">
-                <h2>Team Squads</h2>
-                <div class="squads-grid" id="squadsGrid"></div>
+                <div class="card-wrapper">
+                    <h2>Match Day Schedules</h2>
+                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">Chronological recent results and next scheduled fixtures.</p>
+                    
+                    <div class="daily-fixture-section-lbl">Last 3 Matches Played</div>
+                    <div id="dashPlayedTodayContainer"></div>
+
+                    <div class="daily-fixture-section-lbl upcoming">Next 3 Matches To Be Played</div>
+                    <div id="dashUpcomingRemainingContainer"></div>
+                </div>
             </div>
         </div>
 
-        <div class="right-column">
+        <div id="page-table" class="app-page">
+            <div class="grid-two-columns">
+                <div class="card-wrapper">
+                    <h2>Official Tournament Standings</h2>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">Comprehensive club positions and form metrics parameters.</p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Pos</th>
+                                <th>Club</th>
+                                <th class="col-center">P</th>
+                                <th class="col-center">W</th>
+                                <th class="col-center">D</th>
+                                <th class="col-center">L</th>
+                                <th class="col-center">GD</th>
+                                <th class="col-center" style="color:var(--accent-green)">PTS</th>
+                                <th class="col-center" style="width: 85px;">Form</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fullStandingsBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="card-wrapper">
+                    <h2>Stats Leaderboards</h2>
+                    <div class="leaderboard-tabs" id="leadTabs" style="margin-top:12px;">
+                        <button class="tab-btn active" onclick="switchLeaderboardTab('goals')">🏆 Goals</button>
+                        <button class="tab-btn" onclick="switchLeaderboardTab('assists')">👟 Assists</button>
+                        <button class="tab-btn" onclick="switchLeaderboardTab('ownGoals')">⚠️ OG</button>
+                    </div>
+                    <div id="leaderboardContent"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-matches" class="app-page">
             <div class="card-wrapper">
                 <div class="section-header">
-                    <h2>Match Center</h2>
+                    <h2>Match Center Logs</h2>
                     <div class="header-actions-group" id="matchCenterAdminActions" style="display:none;">
-                        <button class="action-accent-btn" onclick="autoGenerateFixtures()">⚡ Auto-Generate</button>
+                        <button class="action-accent-btn" onclick="autoGenerateFixtures()">⚡ Auto-Generate Round Robin</button>
                         <button class="action-accent-btn" onclick="toggleManualMatchModal(true)">+ New Match</button>
                     </div>
                 </div>
-                
+
                 <div class="match-filters-box">
                     <div class="filter-row-top">
                         <div class="search-wrapper-container">
                             <span class="search-icon-inside">🔍</span>
-                            <input type="text" class="search-input-box" id="matchSearch" placeholder="Search team..." oninput="renderDashboardAll()">
+                            <input type="text" class="search-input-box" id="matchSearch" placeholder="Filter by club team name..." oninput="renderDashboardAll()">
                         </div>
-                        <button class="show-all-btn" onclick="openAllFixturesModal()">📋 Show All Fixtures</button>
                     </div>
                     <div class="filter-row-bottom">
                         <div style="flex: 1;">
-                            <label class="form-label" style="margin-bottom: 4px;">Filter Weekend/Round</label>
+                            <label class="form-label">Filter Round/Tag Group</label>
                             <select id="weekendFilterSelect" class="select-dropdown-widget" onchange="renderDashboardAll()"></select>
                         </div>
                         <div class="filter-btn-group" style="align-self: flex-end;">
@@ -348,46 +572,74 @@
                         </div>
                     </div>
                 </div>
+
                 <div id="fixturesContainer"></div>
             </div>
+        </div>
 
+        <div id="page-squads" class="app-page">
             <div class="card-wrapper">
-                <h2>Stats Leaderboards</h2>
-                <div class="leaderboard-tabs" id="leadTabs">
-                    <button class="tab-btn active gold" onclick="switchLeaderboardTab('goals')">🏆 Golden Boot</button>
-                    <button class="tab-btn" onclick="switchLeaderboardTab('assists')">👟 Assists</button>
-                    <button class="tab-btn" onclick="switchLeaderboardTab('ownGoals')">⚠️ Own Goals</button>
+                <h2>Club Squad Rosters</h2>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">Select an individual soccer club team block asset to inspect structural registration player squads.</p>
+                
+                <div class="match-filters-box" style="margin-bottom: 20px; padding: 10px;">
+                    <div class="search-wrapper-container">
+                        <span class="search-icon-inside">🔍</span>
+                        <input type="text" class="search-input-box" id="playerSquadSearch" placeholder="Search for a specific player profile across all squads..." oninput="searchPlayersRosterEngine()">
+                    </div>
                 </div>
-                <div id="leaderboardContent"></div>
-            </div>
-        </div>
-    </div>
-
-    <div class="admin-panel-card" id="adminControlPanel">
-        <div class="panel-header-row">
-            <h2>🛡️ Admin Control Panel</h2>
-            <div class="panel-tab-pill-box">
-                <button class="pill-btn active" id="subTabTeams" onclick="switchAdminSubTab('teams')">Clubs Roster</button>
-                <button class="pill-btn" id="subTabPlayers" onclick="switchAdminSubTab('players')">Players Registry</button>
+                
+                <div id="playerSearchEngineContainer" class="player-search-results-list" style="display: none;"></div>
+                <div class="squads-grid" id="squadsGrid"></div>
             </div>
         </div>
 
-        <div class="panel-workspace-grid">
-            <div id="adminPanelInputColumn"></div>
-            <div class="card-wrapper" style="background-color:#05070a; border-radius:6px;">
-                <label class="form-label" id="managementListTitleLabel">Registered Items Directory</label>
-                <ul class="management-list" id="adminPanelListingItems"></ul>
+        <div class="admin-panel-card" id="adminControlPanel">
+            <div class="section-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
+                <h2>🛡️ Administrative Management</h2>
+                <div class="panel-tab-pill-box">
+                    <button class="pill-btn active" id="subTabTeams" onclick="switchAdminSubTab('teams')">Clubs Roster</button>
+                    <button class="pill-btn" id="subTabPlayers" onclick="switchAdminSubTab('players')">Players Registry</button>
+                </div>
+            </div>
+            <div class="panel-workspace-grid">
+                <div id="adminPanelInputColumn"></div>
+                <div class="card-wrapper" style="background-color:#05070a; margin-bottom:0;">
+                    <label class="form-label" id="managementListTitleLabel">Registered Directory Logs</label>
+                    <ul class="management-list" id="adminPanelListingItems"></ul>
+                </div>
             </div>
         </div>
-    </div>
+    </main>
 
     <div id="portalOverlay" class="modal-overlay">
         <div class="admin-modal">
             <button class="close-modal-btn" onclick="closeAdminModal()">×</button>
             <div class="modal-title">Administrative Gateway</div>
-            <p class="modal-desc">Provide your specialized platform passphrase to activate complete writing access overrides.</p>
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Provide authorized platform passphrase configuration keys to unlock writing capabilities data access patterns.</p>
             <input type="password" id="portalPassword" class="modal-password-input" placeholder="••••">
             <button class="authorize-btn" onclick="validateAdminCredentials()">Request Access Sync</button>
+        </div>
+    </div>
+
+    <div id="squadPopupModal" class="modal-overlay">
+        <div class="admin-modal" style="width: 480px;">
+            <button class="close-modal-btn" onclick="closeSquadPopupModal()">×</button>
+            <div class="modal-title" id="squadPopupTitle">Team Roster</div>
+            <div style="background:rgba(6, 182, 212, 0.05); border:1px dashed rgba(6, 182, 212, 0.3); border-radius:6px; padding:10px; font-size:13px; margin-bottom:10px;" id="squadPopupManager">Manager: -</div>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+                <div style="flex: 1; background: #05070a; border: 1px solid var(--border-color); padding: 8px; border-radius: 6px; font-size: 11px;">
+                    <span style="display: block; color: var(--text-muted); font-weight: bold; text-transform: uppercase;">🔥 Club Top Scorer</span>
+                    <span id="clubPopupTopScorer" style="color: var(--accent-yellow); font-weight: bold; font-size: 13px;">-</span>
+                </div>
+                <div style="flex: 1; background: #05070a; border: 1px solid var(--border-color); padding: 8px; border-radius: 6px; font-size: 11px;">
+                    <span style="display: block; color: var(--text-muted); font-weight: bold; text-transform: uppercase;">👟 Club Top Assistor</span>
+                    <span id="clubPopupTopAssistor" style="color: var(--accent-cyan); font-weight: bold; font-size: 13px;">-</span>
+                </div>
+            </div>
+
+            <ul class="popup-roster-list" id="squadPopupRosterList"></ul>
         </div>
     </div>
 
@@ -395,54 +647,38 @@
         <div class="admin-modal" style="width: 520px;">
             <button class="close-modal-btn" onclick="closeScoreModal()">×</button>
             <div class="modal-title" id="scoreModalTitle">Match Report Sheet</div>
-            <p class="modal-desc" style="margin-bottom:12px;">Log core scoreline indicators along with targeted event timelines cleanly.</p>
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">Configure goals, assists, and own goal statistics for individual players on both rosters.</p>
             
             <div style="display:flex; gap:16px; margin-bottom:16px;" id="modalScoreInputsRow"></div>
-            
-            <div style="display:grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap:8px; padding:4px; font-size:11px; font-weight:bold; color:var(--text-muted); text-transform:uppercase;">
-                <span>Player</span>
-                <span class="col-center">Goals</span>
-                <span class="col-center">Assists</span>
-                <span class="col-center">Own Goals</span>
-            </div>
-            <div id="modalPlayersEventsList" style="max-height: 200px; overflow-y: auto; margin-bottom: 20px;"></div>
-            <button class="authorize-btn" onclick="saveMatchEventsData()">Save Match Records</button>
+            <div id="modalPlayersEventsList" style="max-height: 220px; overflow-y: auto; margin-bottom: 16px;"></div>
+            <button class="authorize-btn" id="btnSaveScoreRecord" onclick="saveMatchEventsData()">Save Match Records</button>
         </div>
     </div>
 
     <div id="manualMatchModal" class="modal-overlay">
         <div class="admin-modal" style="width: 440px;">
             <button class="close-modal-btn" onclick="toggleManualMatchModal(false)">×</button>
-            <div class="modal-title">Schedule Manual Match</div>
+            <div class="modal-title">Schedule Manual Entry Encounter</div>
             <form id="frmManualMatch" onsubmit="processManualMatch(event)">
-                <div style="margin-bottom: 12px;">
-                    <label class="form-label">Home Team</label>
+                <div style="margin-bottom:12px;">
+                    <label class="form-label">Home Team Side</label>
                     <select id="selHomeTeam" class="select-dropdown-widget" required></select>
                 </div>
-                <div style="margin-bottom: 12px;">
-                    <label class="form-label">Away Team</label>
+                <div style="margin-bottom:12px;">
+                    <label class="form-label">Away Team Side</label>
                     <select id="selAwayTeam" class="select-dropdown-widget" required></select>
                 </div>
-                <div style="margin-bottom: 20px;">
-                    <label class="form-label">Round / Tag Label</label>
-                    <input type="text" id="txtRoundTag" class="text-field-widget" placeholder="e.g. WEEKEND 4 • SATURDAY (ROUND 4)" required>
+                <div style="margin-bottom:18px;">
+                    <label class="form-label">Round Schedule / Tag Tagline</label>
+                    <input type="text" id="txtRoundTag" class="text-field-widget" placeholder="e.g. ROUND 11 • FRIDAY" required>
                 </div>
-                <button type="submit" class="register-action-btn">Commit Manual Match</button>
+                <button type="submit" class="register-action-btn">Commit Manual Entry Fixture</button>
             </form>
         </div>
     </div>
 
-    <div id="allFixturesModal" class="modal-overlay">
-        <div class="admin-modal" style="width: 550px; max-height:85vh; display:flex; flex-direction:column;">
-            <button class="close-modal-btn" onclick="closeAllFixturesModal()">×</button>
-            <div class="modal-title">Complete Tournament Fixtures</div>
-            <p class="modal-desc" style="margin-bottom:14px;">Historical checklist overview of all processed and upcoming encounters.</p>
-            <div id="allFixturesScrollContainer" style="overflow-y:auto; flex:1; padding-right:4px;"></div>
-        </div>
-    </div>
-
     <script>
-        // --- STEP 1: INITIALIZE FIREBASE CONFIG ---
+        // --- DATABASE ROUTER CONFIGURATION ---
         const firebaseConfig = {
             apiKey: "AIzaSyDS9quu-rckjxBMW-vuhx1NFPHeZmfs-3E",
             authDomain: "super-league-3fc14.firebaseapp.com",
@@ -454,71 +690,60 @@
             databaseURL: "https://super-league-3fc14-default-rtdb.firebaseio.com"
         };
 
-        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // Core data models synchronized globally
         let teams = [];
         let players = [];
         let matches = [];
 
         let isAdmin = false;
+        let activeAppPageId = 'dash';
         let activeLeaderboardTab = 'goals';
         let activeAdminSubTab = 'teams';
         let matchFilterState = 'all';
         let activeEditingMatchId = null;
+        let historicalPositionsCache = {};
 
-        // --- STEP 2: REAL-TIME CLOUD DATA SYNC LISTENER ---
+        function switchAppPage(pageId) {
+            activeAppPageId = pageId;
+            document.querySelectorAll(".sidebar-menu .menu-item").forEach(el => el.classList.remove("active"));
+            document.querySelectorAll(".app-page").forEach(el => el.classList.remove("active"));
+            
+            document.getElementById(`nav-${pageId}`).classList.add("active");
+            document.getElementById(`page-${pageId}`).classList.add("active");
+
+            let headingText = pageId.charAt(0).toUpperCase() + pageId.slice(1);
+            if(pageId === 'dash') headingText = "Dashboard Overview";
+            if(pageId === 'table') headingText = "Standings & Statistics";
+            if(pageId === 'matches') headingText = "Match Center Fixtures";
+            if(pageId === 'squads') headingText = "Club Squad Rosters";
+            document.getElementById("pageMainHeading").innerText = headingText;
+
+            // Clear squad lookup engine inputs on switch resets
+            if (pageId === 'squads') {
+                let searchBox = document.getElementById("playerSquadSearch");
+                if (searchBox) { searchBox.value = ""; searchPlayersRosterEngine(); }
+            }
+
+            renderDashboardAll();
+        }
+
         db.ref('leagueData').on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
                 teams = data.teams || [];
                 players = data.players || [];
                 matches = data.matches || [];
-                
-                // Keep local storage as a robust local cache pipeline
-                localStorage.setItem('SL_teams', JSON.stringify(teams));
-                localStorage.setItem('SL_players', JSON.stringify(players));
-                localStorage.setItem('SL_matches', JSON.stringify(matches));
-                
-                // Repopulate layout dynamically 
                 updateWeekendDropdownOptions();
                 renderDashboardAll();
-            } else {
-                // Initial baseline seeds if cloud database is fresh and fully clean
-                teams = JSON.parse(localStorage.getItem('SL_teams')) || [
-                    { id: "t1", name: "Plak Fc", played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, gd: 0, pts: 0 },
-                    { id: "t2", name: "Deez Nuts Fc", played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, gd: 0, pts: 0 },
-                    { id: "t3", name: "Modern Girls Fc", played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, gd: 0, pts: 0 },
-                    { id: "t4", name: "Power Dynamo Fc", played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, gd: 0, pts: 0 },
-                    { id: "t5", name: "Kandjengedi Fc", played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, gd: 0, pts: 0 },
-                    { id: "t6", name: "Oshakati City Fc", played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, gd: 0, pts: 0 }
-                ];
-                players = JSON.parse(localStorage.getItem('SL_players')) || [];
-                matches = JSON.parse(localStorage.getItem('SL_matches')) || [
-                    { id: "m1", tag: "WEEKEND 1 • SATURDAY (ROUND 1)", homeId: "t1", awayId: "t2", homeScore: null, awayScore: null, completed: false, events: [] },
-                    { id: "m2", tag: "WEEKEND 1 • SATURDAY (ROUND 1)", homeId: "t3", awayId: "t4", homeScore: null, awayScore: null, completed: false, events: [] },
-                    { id: "m3", tag: "WEEKEND 1 • SATURDAY (ROUND 1)", homeId: "t5", awayId: "t6", homeScore: null, awayScore: null, completed: false, events: [] }
-                ];
-                persistDatabaseState();
             }
         });
 
         function persistDatabaseState() {
-            localStorage.setItem('SL_teams', JSON.stringify(teams));
-            localStorage.setItem('SL_players', JSON.stringify(players));
-            localStorage.setItem('SL_matches', JSON.stringify(matches));
-            
-            // Push to Firebase Realtime Database
-            db.ref('leagueData').set({
-                teams: teams,
-                players: players,
-                matches: matches
-            });
+            db.ref('leagueData').set({ teams, players, matches });
         }
 
-        // --- ADMINISTRATIVE SECURITY OVERLAYS ---
         function handleAuthAction() {
             if (isAdmin) {
                 isAdmin = false;
@@ -534,9 +759,7 @@
             }
         }
 
-        function closeAdminModal() {
-            document.getElementById("portalOverlay").classList.remove("active");
-        }
+        function closeAdminModal() { document.getElementById("portalOverlay").classList.remove("active"); }
 
         function validateAdminCredentials() {
             if (document.getElementById("portalPassword").value === "Windhoek") {
@@ -555,13 +778,24 @@
             }
         }
 
-        // --- COMPREHENSIVE ALGORITHMIC COMPUTATIONS ---
+        function getTeamRecentForm(teamId) {
+            let teamMatches = matches.filter(m => m.completed && (m.homeId === teamId || m.awayId === teamId));
+            let recentGames = teamMatches.slice(-3);
+            let formArray = [];
+            recentGames.forEach(m => {
+                if (m.homeScore === m.awayScore) formArray.push('D');
+                else if (m.homeId === teamId) formArray.push(m.homeScore > m.awayScore ? 'W' : 'L');
+                else formArray.push(m.awayScore > m.homeScore ? 'W' : 'L');
+            });
+            return formArray;
+        }
+
         function calculateStandings() {
             teams.forEach(t => { t.played = 0; t.won = 0; t.drawn = 0; t.lost = 0; t.gf = 0; t.ga = 0; t.gd = 0; t.pts = 0; });
             players.forEach(p => { p.goals = 0; p.assists = 0; p.ownGoals = 0; });
 
             matches.forEach(m => {
-                if (m.events && m.events.length > 0) {
+                if (m.events) {
                     m.events.forEach(evt => {
                         let targetP = players.find(p => p.id === evt.playerId);
                         if (targetP) {
@@ -576,223 +810,211 @@
                     let home = teams.find(t => t.id === m.homeId);
                     let away = teams.find(t => t.id === m.awayId);
                     if (!home || !away) return;
-
-                    home.played++;
-                    away.played++;
-                    home.gf += m.homeScore;
-                    home.ga += m.awayScore;
-                    away.gf += m.awayScore;
-                    away.ga += m.homeScore;
-
+                    home.played++; away.played++;
+                    home.gf += m.homeScore; home.ga += m.awayScore;
+                    away.gf += m.awayScore; away.ga += m.homeScore;
                     if (m.homeScore > m.awayScore) { home.won++; home.pts += 3; away.lost++; }
                     else if (m.homeScore < m.awayScore) { away.won++; away.pts += 3; home.lost++; }
                     else { home.drawn++; home.pts += 1; away.drawn++; away.pts += 1; }
-
-                    home.gd = home.gf - home.ga;
-                    away.gd = away.gf - away.ga;
+                    home.gd = home.gf - home.ga; away.gd = away.gf - away.ga;
                 }
             });
             teams.sort((a, b) => b.pts - a.pts || b.gd - a.gd);
+            renderMiniLeaderboardWidgets();
         }
 
-        // --- STATS LOGGING PANEL SAVER ---
+        function renderMiniLeaderboardWidgets() {
+            let topScorer = [...players].sort((a,b) => b.goals - a.goals || b.assists - a.assists)[0];
+            let topAssistor = [...players].sort((a,b) => b.assists - a.assists || b.goals - a.goals)[0];
+
+            if(topScorer && topScorer.goals > 0) {
+                let tName = teams.find(t => t.id === topScorer.teamId)?.name || 'Club';
+                document.getElementById("dashTopScorerName").innerText = topScorer.name;
+                document.getElementById("dashTopScorerStat").innerText = `${topScorer.goals} Goals (${tName})`;
+            } else {
+                document.getElementById("dashTopScorerName").innerText = "No Records Yet";
+                document.getElementById("dashTopScorerStat").innerText = "0 Goals";
+            }
+
+            if(topAssistor && topAssistor.assists > 0) {
+                let tName = teams.find(t => t.id === topAssistor.teamId)?.name || 'Club';
+                document.getElementById("dashTopAssistorName").innerText = topAssistor.name;
+                document.getElementById("dashTopAssistorStat").innerText = `${topAssistor.assists} Assists (${tName})`;
+            } else {
+                document.getElementById("dashTopAssistorName").innerText = "No Records Yet";
+                document.getElementById("dashTopAssistorStat").innerText = "0 Assists";
+            }
+        }
+
+        function toggleInlinePlPanel(matchId) {
+            let panel = document.getElementById(`pl-panel-${matchId}`);
+            if(panel) panel.classList.toggle("active");
+        }
+
+        function openSquadPopupModal(teamId) {
+            let t = teams.find(x => x.id === teamId);
+            if (!t) return;
+            document.getElementById("squadPopupTitle").innerText = `${t.name} Squad Log`;
+            document.getElementById("squadPopupManager").innerHTML = `Club Manager: <strong>${t.manager || 'Unassigned Profile'}</strong>`;
+            
+            let tPlayers = players.filter(p => p.teamId === teamId);
+            
+            // Calculate club level localized mini-leaders
+            let clubTopScorer = [...tPlayers].sort((a,b) => b.goals - a.goals || b.assists - a.assists)[0];
+            let clubTopAssistor = [...tPlayers].sort((a,b) => b.assists - a.assists || b.goals - a.goals)[0];
+
+            document.getElementById("clubPopupTopScorer").innerText = (clubTopScorer && clubTopScorer.goals > 0) ? `${clubTopScorer.name} (${clubTopScorer.goals} G)` : "None Registered";
+            document.getElementById("clubPopupTopAssistor").innerText = (clubTopAssistor && clubTopAssistor.assists > 0) ? `${clubTopAssistor.name} (${clubTopAssistor.assists} A)` : "None Registered";
+
+            let rosterHtml = tPlayers.map(p => `<li><span>👤 <strong>${p.name}</strong></span><small style="color:var(--accent-cyan); font-weight:600;">${p.goals} G / ${p.assists} A</small></li>`).join('');
+            document.getElementById("squadPopupRosterList").innerHTML = rosterHtml || `<div class="empty-state-notice">No active player metrics assigned.</div>`;
+            document.getElementById("squadPopupModal").classList.add("active");
+        }
+        function closeSquadPopupModal() { document.getElementById("squadPopupModal").classList.remove("active"); }
+
+        // --- LOOKUP PLAYER ENGINE IMPLEMENTATION ---
+        function searchPlayersRosterEngine() {
+            let val = document.getElementById("playerSquadSearch").value.toLowerCase().trim();
+            let wrapper = document.getElementById("playerSearchEngineContainer");
+            
+            if(!val) {
+                wrapper.innerHTML = "";
+                wrapper.style.display = "none";
+                return;
+            }
+
+            let filtered = players.filter(p => p.name.toLowerCase().includes(val));
+            if(filtered.length === 0) {
+                wrapper.innerHTML = `<div class="player-search-result-item" style="color: var(--text-muted); justify-content: center;">No registered player accounts matching "${val}".</div>`;
+            } else {
+                wrapper.innerHTML = filtered.map(p => {
+                    let teamName = teams.find(t => t.id === p.teamId)?.name || "Unassigned Agent";
+                    return `
+                    <div class="player-search-result-item">
+                        <div>
+                            <strong style="color:#fff; font-size:14px;">👤 ${p.name}</strong>
+                            <span style="display:block; font-size:11px; color: var(--text-muted);">Club Asset: ${teamName}</span>
+                        </div>
+                        <div style="background-color: var(--bg-color); border:1px solid var(--border-color); padding: 4px 10px; border-radius:4px; font-size:12px;">
+                            <span style="color:var(--accent-yellow); font-weight:bold; margin-right:8px;">⚽ ${p.goals} Goals</span>
+                            <span style="color:var(--accent-cyan); font-weight:bold;">👟 ${p.assists} Assists</span>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+            wrapper.style.display = "flex";
+        }
+
         function openScoreModal(matchId) {
+            event.stopPropagation(); 
             activeEditingMatchId = matchId;
             let m = matches.find(x => x.id === matchId);
-            let hName = teams.find(t => t.id === m.homeId)?.name || 'Deleted Home';
-            let aName = teams.find(t => t.id === m.awayId)?.name || 'Deleted Away';
+            let hName = teams.find(t => t.id === m.homeId)?.name || 'Home Club';
+            let aName = teams.find(t => t.id === m.awayId)?.name || 'Away Club';
             
             document.getElementById("scoreModalTitle").innerText = `${hName} vs ${aName}`;
-            
-            let scoreRowHtml = `
-                <div style="flex:1;">
-                    <label class="form-label">${hName} Goals</label>
-                    <input type="number" id="modalHomeScore" class="text-field-widget" value="${m.homeScore !== null ? m.homeScore : 0}" min="0">
-                </div>
-                <div style="flex:1;">
-                    <label class="form-label">${aName} Goals</label>
-                    <input type="number" id="modalAwayScore" class="text-field-widget" value="${m.awayScore !== null ? m.awayScore : 0}" min="0">
-                </div>
+            document.getElementById("modalScoreInputsRow").innerHTML = `
+                <div style="flex:1;"><label class="form-label">${hName} Goals</label><input type="number" id="modalHomeScore" class="text-field-widget" value="${m.homeScore ?? 0}" min="0"></div>
+                <div style="flex:1;"><label class="form-label">${aName} Goals</label><input type="number" id="modalAwayScore" class="text-field-widget" value="${m.awayScore ?? 0}" min="0"></div>
             `;
-            document.getElementById("modalScoreInputsRow").innerHTML = scoreRowHtml;
-
-            let modalPlayersHtml = "";
+            
             let matchRosterPlayers = players.filter(p => p.teamId === m.homeId || p.teamId === m.awayId);
+            let modalPlayersHtml = "";
 
-            if (matchRosterPlayers.length === 0) {
-                modalPlayersHtml = `<div class="empty-state-notice" style="grid-column:1/-1;">Register team players in Admin Panel to log separate individual stats milestones.</div>`;
-            } else {
-                matchRosterPlayers.forEach(p => {
-                    let pTeam = teams.find(t => t.id === p.teamId)?.name || '';
-                    let currentGoals = 0, currentAssists = 0, currentOgs = 0;
-                    
-                    if (m.events) {
-                        let gEvt = m.events.find(e => e.playerId === p.id && e.type === 'goals');
-                        let aEvt = m.events.find(e => e.playerId === p.id && e.type === 'assists');
-                        let oEvt = m.events.find(e => e.playerId === p.id && e.type === 'ownGoals');
-                        if(gEvt) currentGoals = gEvt.count;
-                        if(aEvt) currentAssists = aEvt.count;
-                        if(oEvt) currentOgs = oEvt.count;
-                    }
+            matchRosterPlayers.forEach(p => {
+                let pTeam = teams.find(t => t.id === p.teamId)?.name || '';
+                let g = 0, a = 0, og = 0;
+                if(m.events) {
+                    g = m.events.find(e => e.playerId === p.id && e.type === 'goals')?.count || 0;
+                    a = m.events.find(e => e.playerId === p.id && e.type === 'assists')?.count || 0;
+                    og = m.events.find(e => e.playerId === p.id && e.type === 'ownGoals')?.count || 0;
+                }
+                modalPlayersHtml += `
+                <div class="match-event-row" data-player-id="${p.id}">
+                    <span style="font-weight:600;">${p.name} <small style="color:var(--text-muted); display:block; font-size:10px;">${pTeam}</small></span>
+                    <div><input type="number" class="stat-input-small p-goals" value="${g}" min="0"></div>
+                    <div><input type="number" class="stat-input-small p-assists" value="${a}" min="0"></div>
+                    <div><input type="number" class="stat-input-small p-own-goals" value="${og}" min="0"></div>
+                </div>`;
+            });
 
-                    modalPlayersHtml += `
-                    <div class="match-event-row" data-player-id="${p.id}">
-                        <span style="font-weight:600;">${p.name} <small style="color:var(--text-muted); display:block; font-size:10px;">${pTeam}</small></span>
-                        <div><input type="number" class="stat-input-small p-goals" value="${currentGoals}" min="0"></div>
-                        <div><input type="number" class="stat-input-small p-assists" value="${currentAssists}" min="0"></div>
-                        <div><input type="number" class="stat-input-small p-own-goals" value="${currentOgs}" min="0"></div>
-                    </div>`;
-                });
-            }
-            document.getElementById("modalPlayersEventsList").innerHTML = modalPlayersHtml;
+            document.getElementById("modalPlayersEventsList").innerHTML = modalPlayersHtml || `<div class="empty-state-notice">No individual player profiles on roster.</div>`;
             document.getElementById("scoreLoggerModal").classList.add("active");
         }
-
-        function closeScoreModal() {
-            document.getElementById("scoreLoggerModal").classList.remove("active");
-            activeEditingMatchId = null;
-        }
+        function closeScoreModal() { document.getElementById("scoreLoggerModal").classList.remove("active"); activeEditingMatchId = null; }
 
         function saveMatchEventsData() {
-            if(!activeEditingMatchId) return;
+            if(!activeEditingMatchId || !isAdmin) return;
             let m = matches.find(x => x.id === activeEditingMatchId);
-            
-            let hScore = parseInt(document.getElementById("modalHomeScore").value);
-            let aScore = parseInt(document.getElementById("modalAwayScore").value);
-            if(isNaN(hScore) || hScore < 0) hScore = 0;
-            if(isNaN(aScore) || aScore < 0) aScore = 0;
-
-            m.homeScore = hScore;
-            m.awayScore = aScore;
+            m.homeScore = parseInt(document.getElementById("modalHomeScore").value) || 0;
+            m.awayScore = parseInt(document.getElementById("modalAwayScore").value) || 0;
             m.completed = true;
             m.events = [];
 
-            let rows = document.querySelectorAll("#modalPlayersEventsList .match-event-row");
-            rows.forEach(row => {
+            document.querySelectorAll("#modalPlayersEventsList .match-event-row").forEach(row => {
                 let pId = row.getAttribute("data-player-id");
-                let gCount = parseInt(row.querySelector(".p-goals").value) || 0;
-                let aCount = parseInt(row.querySelector(".p-assists").value) || 0;
-                let ogCount = parseInt(row.querySelector(".p-own-goals").value) || 0;
+                let g = parseInt(row.querySelector(".p-goals").value) || 0;
+                let a = parseInt(row.querySelector(".p-assists").value) || 0;
+                let og = parseInt(row.querySelector(".p-own-goals").value) || 0;
 
-                if (gCount > 0 || aCount > 0 || ogCount > 0) {
-                    if(gCount > 0) m.events.push({ playerId: pId, type: 'goals', count: gCount });
-                    if(aCount > 0) m.events.push({ playerId: pId, type: 'assists', count: aCount });
-                    if(ogCount > 0) m.events.push({ playerId: pId, type: 'ownGoals', count: ogCount });
-                }
+                if(g > 0) m.events.push({ playerId: pId, type: 'goals', count: g });
+                if(a > 0) m.events.push({ playerId: pId, type: 'assists', count: a });
+                if(og > 0) m.events.push({ playerId: pId, type: 'ownGoals', count: og });
             });
 
             persistDatabaseState();
             closeScoreModal();
         }
 
-        // --- DIRECTORY CONTROLS ---
         function addNewTeamAction() {
-            let input = document.getElementById("newTeamInput");
-            if (!input.value.trim()) return;
-
-            teams.push({ id: "t" + (Date.now()), name: input.value.trim(), played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, gd: 0, pts: 0 });
-            input.value = "";
+            let inputName = document.getElementById("newTeamInput");
+            let inputManager = document.getElementById("newTeamManagerInput");
+            if (!inputName.value.trim()) return;
+            teams.push({ id: "t" + Date.now(), name: inputName.value.trim(), manager: inputManager.value.trim(), played:0, won:0, drawn:0, lost:0, gf:0, ga:0, gd:0, pts:0 });
+            inputName.value = ""; inputManager.value = "";
             persistDatabaseState();
         }
-
+        function deleteTeam(id) { if (confirm("Delete club completely?")) { teams = teams.filter(t => t.id !== id); players = players.filter(p => p.teamId !== id); persistDatabaseState(); } }
         function renameTeam(id) {
             let team = teams.find(t => t.id === id);
-            let n = prompt("Enter new name for " + team.name + ":");
-            if (n && n.trim()) {
-                team.name = n.trim();
-                persistDatabaseState();
-            }
+            let n = prompt("Enter new name:", team.name);
+            let m = prompt("Enter manager name:", team.manager || "");
+            if(n && n.trim()) { team.name = n.trim(); team.manager = m ? m.trim() : ""; persistDatabaseState(); }
         }
-
-        function deleteTeam(id) {
-            if (confirm("Delete this club profile profile cleanly?")) {
-                teams = teams.filter(t => t.id !== id);
-                players = players.filter(p => p.teamId !== id); // Cascading update to clear players
-                persistDatabaseState();
-            }
-        }
-
-        // --- ROSTER MANAGEMENT PIPELINES ---
         function registerNewPlayer() {
             let nameInput = document.getElementById("playerNameInput");
             let teamSelect = document.getElementById("playerTeamSelect");
-            if (!nameInput.value.trim() || !teamSelect.value) return alert("Fill in player credentials completely.");
-
-            players.push({
-                id: "p" + (Date.now()),
-                name: nameInput.value.trim(),
-                teamId: teamSelect.value,
-                goals: 0,
-                assists: 0,
-                ownGoals: 0
-            });
+            if (!nameInput.value.trim()) return;
+            players.push({ id: "p" + Date.now(), name: nameInput.value.trim(), teamId: teamSelect.value, goals: 0, assists: 0, ownGoals: 0 });
             nameInput.value = "";
             persistDatabaseState();
         }
-
-        function unregisterPlayer(id) {
-            if (confirm("Remove this player profile from league logs?")) {
-                players = players.filter(p => p.id !== id);
-                // Clean references inside match events
-                matches.forEach(m => {
-                    if (m.events) m.events = m.events.filter(e => e.playerId !== id);
-                });
-                persistDatabaseState();
-            }
-        }
-
-        function changePlayerStat(pId, statType, amount) {
-            let p = players.find(x => x.id === pId);
-            if (!p) return;
-            
-            // To maintain cloud integrity, inject this straight into manual match records as overriding adjustments or fallback adjustments
-            let adjustMatch = matches.find(m => m.tag.includes("SCHEDULER SELECTION ADJUSTMENT"));
+        function unregisterPlayer(id) { if(confirm("Unregister player profile?")) { players = players.filter(p => p.id !== id); persistDatabaseState(); } }
+        function changePlayerStat(pId, type, amt) {
+            let adjustMatch = matches.find(m => m.tag === "GLOBAL STAT OVERRIDE ADJUSTMENT DATA");
             if (!adjustMatch) {
-                adjustMatch = { id: "m-adj-" + Date.now(), tag: "GLOBAL STAT OVERRIDE ADJUSTMENT DATA", homeId: teams[0]?.id || 't1', awayId: teams[1]?.id || 't2', homeScore: null, awayScore: null, completed: false, events: [] };
+                adjustMatch = { id: "m-adj-" + Date.now(), tag: "GLOBAL STAT OVERRIDE ADJUSTMENT DATA", homeId: "t1", awayId: "t2", homeScore: null, awayScore: null, completed: false, events: [] };
                 matches.push(adjustMatch);
             }
-            
-            let existingEvt = adjustMatch.events.find(e => e.playerId === pId && e.type === statType);
-            if (existingEvt) {
-                existingEvt.count += amount;
-                if (existingEvt.count <= 0) adjustMatch.events = adjustMatch.events.filter(e => e !== existingEvt);
-            } else if (amount > 0) {
-                adjustMatch.events.push({ playerId: pId, type: statType, count: amount });
-            }
-            
+            let ev = adjustMatch.events.find(e => e.playerId === pId && e.type === type);
+            if (ev) { ev.count += amt; if(ev.count <= 0) adjustMatch.events = adjustMatch.events.filter(e => e !== ev); }
+            else if (amt > 0) { adjustMatch.events.push({ playerId: pId, type: type, count: amt }); }
             persistDatabaseState();
         }
 
-        // --- SCHEDULING ENGINES (ROUND ROBIN) ---
         function autoGenerateFixtures() {
-            if (teams.length < 2) return alert("Requires minimum of two distinct registered clubs.");
-            if (!confirm("Generate absolute full Round-Robin tournament pairings? Existing unplayed encounters will reset.")) return;
-
-            matches = matches.filter(m => m.completed); // Retain completed matches
+            if (teams.length < 2) return alert("Add more clubs first.");
+            if (!confirm("Wipe scheduled unplayed items and generate round robin?")) return;
+            matches = matches.filter(m => m.completed);
             let pool = [...teams];
-            if (pool.length % 2 !== 0) {
-                pool.push({ id: "dummy-bye", name: "BYE WEEK" });
-            }
-
-            let roundsCount = pool.length - 1;
-            let matchesPerRound = pool.length / 2;
-
-            for (let roundIdx = 0; roundIdx < roundsCount; roundIdx++) {
-                for (let matchIdx = 0; matchIdx < matchesPerRound; matchIdx++) {
-                    let homeSide = pool[matchIdx];
-                    let awaySide = pool[pool.length - 1 - matchIdx];
-
-                    if (homeSide.id !== "dummy-bye" && awaySide.id !== "dummy-bye") {
-                        matches.push({
-                            id: "m-auto-" + roundIdx + "-" + matchIdx + "-" + Date.now(),
-                            tag: `ROUND ${roundIdx + 1} • LEAGUE ENCOUNTER`,
-                            homeId: roundIdx % 2 === 0 ? homeSide.id : awaySide.id,
-                            awayId: roundIdx % 2 === 0 ? awaySide.id : homeSide.id,
-                            homeScore: null,
-                            awayScore: null,
-                            completed: false,
-                            events: []
-                        });
+            if (pool.length % 2 !== 0) pool.push({ id: "dummy-bye", name: "BYE" });
+            
+            for (let r = 0; r < pool.length - 1; r++) {
+                for (let i = 0; i < pool.length / 2; i++) {
+                    let h = pool[i], a = pool[pool.length - 1 - i];
+                    if (h.id !== "dummy-bye" && a.id !== "dummy-bye") {
+                        let dayTag = (r % 2 === 0) ? "FRIDAY" : "SATURDAY";
+                        matches.push({ id: `m-auto-${r}-${i}-${Date.now()}`, tag: `ROUND ${r + 1} • ${dayTag}`, homeId: h.id, awayId: a.id, homeScore: null, awayScore: null, completed: false, events: [] });
                     }
                 }
                 pool.splice(1, 0, pool.pop());
@@ -800,359 +1022,231 @@
             persistDatabaseState();
         }
 
-        function toggleManualMatchModal(shouldOpen) {
-            const modal = document.getElementById("manualMatchModal");
-            if (shouldOpen) {
-                const homeDropdown = document.getElementById("selHomeTeam");
-                const awayDropdown = document.getElementById("selAwayTeam");
-                homeDropdown.innerHTML = "";
-                awayDropdown.innerHTML = "";
-                teams.forEach(team => {
-                    homeDropdown.add(new Option(team.name, team.id));
-                    awayDropdown.add(new Option(team.name, team.id));
-                });
-                modal.classList.add("active");
-            } else {
-                modal.classList.remove("active");
-                document.getElementById("frmManualMatch").reset();
-            }
+        function toggleManualMatchModal(open) {
+            if(open) {
+                let hDropdown = document.getElementById("selHomeTeam"), aDropdown = document.getElementById("selAwayTeam");
+                hDropdown.innerHTML = ""; aDropdown.innerHTML = "";
+                teams.forEach(t => { hDropdown.add(new Option(t.name, t.id)); aDropdown.add(new Option(t.name, t.id)); });
+                document.getElementById("manualMatchModal").classList.add("active");
+            } else { document.getElementById("manualMatchModal").classList.remove("active"); }
         }
-
-        function processManualMatch(event) {
-            event.preventDefault();
-            const homeId = document.getElementById("selHomeTeam").value;
-            const awayId = document.getElementById("selAwayTeam").value;
-            const roundTag = document.getElementById("txtRoundTag").value.trim().toUpperCase();
-
-            if (homeId === homeId && homeId === awayId) {
-                alert("Conflict: A club cannot play against itself.");
-                return;
-            }
-
-            matches.push({
-                id: "m-manual-" + Date.now(),
-                tag: roundTag || "MANUAL ENTRY ENCOUNTER",
-                homeId: homeId,
-                awayId: awayId,
-                homeScore: null,
-                awayScore: null,
-                completed: false,
-                events: []
-            });
-
+        function processManualMatch(e) {
+            e.preventDefault();
+            let homeId = document.getElementById("selHomeTeam").value;
+            let awayId = document.getElementById("selAwayTeam").value;
+            let tag = document.getElementById("txtRoundTag").value.toUpperCase().trim();
+            if(homeId === awayId) return alert("Clubs cannot align against themselves.");
+            matches.push({ id: "m-man-" + Date.now(), tag, homeId, awayId, homeScore: null, awayScore: null, completed: false, events: [] });
             toggleManualMatchModal(false);
             persistDatabaseState();
         }
+        function deleteFixtureRecord(id) { if(confirm("Wipe scheduled fixture profile?")) { matches = matches.filter(m => m.id !== id); persistDatabaseState(); } }
+        function setMatchFilter(t) { matchFilterState = t; document.querySelectorAll(".filter-btn-group button").forEach(b => b.classList.remove("active")); event.currentTarget.classList.add("active"); renderDashboardAll(); }
+        function switchLeaderboardTab(t) { activeLeaderboardTab = t; document.querySelectorAll("#leadTabs .tab-btn").forEach(b => b.classList.remove("active")); event.currentTarget.classList.add("active"); renderLeaderboardOnly(); }
+        function switchAdminSubTab(t) { activeAdminSubTab = t; switchAdminSubTabDesignRender(); }
 
-        function deleteFixtureRecord(matchId) {
-            if (confirm("Permanently wipe out this scheduled fixture?")) {
-                matches = matches.filter(m => m.id !== matchId);
-                persistDatabaseState();
-            }
-        }
-
-        // --- FILTERS AND INTERFACE OVERVIEWS ---
-        function setMatchFilter(type) {
-            matchFilterState = type;
-            document.querySelectorAll(".filter-btn-group button").forEach(b => b.classList.remove("active"));
-            if (type === 'all') document.getElementById("filterAll").classList.add("active");
-            if (type === 'played') document.getElementById("filterPlayed").classList.add("active");
-            if (type === 'upcoming') document.getElementById("filterUpcoming").classList.add("active");
-            renderDashboardAll();
-        }
-
-        function updateWeekendDropdownOptions() {
-            let selector = document.getElementById("weekendFilterSelect");
-            if(!selector) return;
-            let prevSelected = selector.value;
-            selector.innerHTML = "";
-
-            let optionAll = document.createElement("option");
-            optionAll.value = "ALL_ROUNDS";
-            optionAll.innerText = "All Scheduled Tournament Rounds";
-            selector.append(optionAll);
-
-            let uniqueTags = [...new Set(matches.map(m => m.tag))];
-            uniqueTags.forEach(tag => {
-                let opt = document.createElement("option");
-                opt.value = tag;
-                opt.innerText = tag;
-                selector.append(opt);
-            });
-
-            if ([...selector.options].some(o => o.value === prevSelected)) {
-                selector.value = prevSelected;
-            }
-        }
-
-        function openAllFixturesModal() {
-            let container = document.getElementById("allFixturesScrollContainer");
-            container.innerHTML = "";
-
-            if (matches.length === 0) {
-                container.innerHTML = `<div class="empty-state-notice">No fixtures scheduled yet.</div>`;
-            } else {
-                matches.forEach(m => {
-                    let hName = teams.find(t => t.id === m.homeId)?.name || 'Unknown';
-                    let aName = teams.find(t => t.id === m.awayId)?.name || 'Unknown';
-                    let scoreDisplay = m.completed ? `(${m.homeScore} - ${m.awayScore})` : `VS`;
-                    let compBadge = m.completed ? `<span class="status-badge">COMPLETED</span>` : `<span class="status-badge unplayed">UNPLAYED</span>`;
-
-                    let row = document.createElement("div");
-                    row.style.background = "var(--bg-color)";
-                    row.style.border = "1px solid var(--border-color)";
-                    row.style.borderRadius = "8px";
-                    row.style.padding = "12px";
-                    row.style.marginBottom = "8px";
-                    row.style.display = "flex";
-                    row.style.justifyContent = "space-between";
-                    row.style.alignItems = "center";
-                    row.style.fontSize = "13px";
-
-                    row.innerHTML = `
-                        <div>
-                            <div style="font-size:10px; color:var(--accent-green); font-weight:bold; margin-bottom:2px;">${m.tag}</div>
-                            <strong>${hName}</strong> <span style="color:var(--accent-cyan); margin:0 4px;">${scoreDisplay}</span> <strong>${aName}</strong>
-                        </div>
-                        ${compBadge}
-                    `;
-                    container.appendChild(row);
-                });
-            }
-            document.getElementById("allFixturesModal").classList.add("active");
-        }
-
-        function closeAllFixturesModal() {
-            document.getElementById("allFixturesModal").classList.remove("active");
-        }
-
-        function switchLeaderboardTab(tab) {
-            activeLeaderboardTab = tab;
-            document.querySelectorAll("#leadTabs .tab-btn").forEach(b => b.classList.remove("active"));
-            let eventTarget = event.currentTarget;
-            if(eventTarget) eventTarget.classList.add("active");
-            renderLeaderboardOnly();
-        }
-
-        function switchAdminSubTab(subTab) {
-            activeAdminSubTab = subTab;
-            document.querySelectorAll(".panel-tab-pill-box .pill-btn").forEach(b => b.classList.remove("active"));
-            
+        function switchAdminSubTabDesignRender() {
             let inputCol = document.getElementById("adminPanelInputColumn");
-            if (subTab === 'teams') {
+            if (activeAdminSubTab === 'teams') {
                 document.getElementById("subTabTeams").classList.add("active");
                 document.getElementById("managementListTitleLabel").innerText = "Registered Clubs Directory";
                 inputCol.innerHTML = `
-                    <div class="card-wrapper" style="background-color:#05070a; border-radius:6px;">
-                        <label class="form-label">Affiliate New Football Club</label>
-                        <div style="display:flex; gap:8px;">
-                            <input type="text" id="newTeamInput" class="text-field-widget" placeholder="Enter brand new club label name...">
-                            <button class="action-accent-btn" onclick="addNewTeamAction()" style="background-color:var(--accent-green); color:#000; border:none; padding:0 16px;">Add</button>
-                        </div>
+                    <div class="card-wrapper" style="background-color:#05070a; display:flex; flex-direction:column; gap:10px;">
+                        <div><label class="form-label">Football Club Name</label><input type="text" id="newTeamInput" class="text-field-widget"></div>
+                        <div><label class="form-label">Manager Profile</label><input type="text" id="newTeamManagerInput" class="text-field-widget"></div>
+                        <button class="register-action-btn" onclick="addNewTeamAction()">Add Club Profile</button>
                     </div>`;
             } else {
                 document.getElementById("subTabPlayers").classList.add("active");
                 document.getElementById("managementListTitleLabel").innerText = "Registered Players Log Directory";
-                
-                let optionsHtml = teams.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+                let options = teams.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
                 inputCol.innerHTML = `
-                    <div class="card-wrapper" style="background-color:#05070a; border-radius:6px; display:flex; flex-direction:column; gap:12px;">
-                        <div>
-                            <label class="form-label">Player Roster Name</label>
-                            <input type="text" id="playerNameInput" class="text-field-widget" placeholder="Full player name...">
-                        </div>
-                        <div>
-                            <label class="form-label">Assigned Core Team</label>
-                            <select id="playerTeamSelect" class="select-dropdown-widget">${optionsHtml || '<option disabled selected>No teams active</option>'}</select>
-                        </div>
+                    <div class="card-wrapper" style="background-color:#05070a; display:flex; flex-direction:column; gap:10px;">
+                        <div><label class="form-label">Player Name</label><input type="text" id="playerNameInput" class="text-field-widget"></div>
+                        <div><label class="form-label">Assigned Club</label><select id="playerTeamSelect" class="select-dropdown-widget">${options}</select></div>
                         <button class="register-action-btn" onclick="registerNewPlayer()">Register To Roster</button>
                     </div>`;
             }
             renderDashboardAll();
         }
 
-        // --- RENDERING VIEWS CORES ---
+        function updateWeekendDropdownOptions() {
+            let selector = document.getElementById("weekendFilterSelect");
+            if(!selector) return;
+            let val = selector.value; selector.innerHTML = `<option value="ALL_ROUNDS">All Scheduled Tournament Rounds</option>`;
+            [...new Set(matches.map(m => m.tag))].forEach(t => { if(t !== "GLOBAL STAT OVERRIDE ADJUSTMENT DATA") selector.add(new Option(t, t)); });
+            if([...selector.options].some(o => o.value === val)) selector.value = val;
+        }
+
         function renderLeaderboardOnly() {
-            let contentBox = document.getElementById("leaderboardContent");
-            let sortedPlayers = [...players].filter(p => p[activeLeaderboardTab] > 0);
-            sortedPlayers.sort((a, b) => b[activeLeaderboardTab] - a[activeLeaderboardTab]);
-
-            if (sortedPlayers.length === 0) {
-                contentBox.innerHTML = `<div class="empty-state-notice">No records matching stats criteria logged yet.</div>`;
-                return;
-            }
-
-            let html = `<ul class="leaderboard-list">`;
-            sortedPlayers.forEach(p => {
-                let tName = teams.find(t => t.id === p.teamId)?.name || 'Free Agent';
-                html += `
-                    <li class="leaderboard-row">
-                        <span><strong>${p.name}</strong> (${tName})</span>
-                        <span class="col-green">${p[activeLeaderboardTab]}</span>
-                    </li>`;
-            });
-            html += `</ul>`;
-            contentBox.innerHTML = html;
+            let sorted = [...players].filter(p => p[activeLeaderboardTab] > 0).sort((a,b) => b[activeLeaderboardTab] - a[activeLeaderboardTab]);
+            document.getElementById("leaderboardContent").innerHTML = sorted.length === 0 ? `<div class="empty-state-notice">No milestone stats records matching logged criteria.</div>` : 
+                `<ul style="list-style:none;">` + sorted.map((p, idx) => `<li class="leaderboard-row ${idx===0?'top-tier-highlight':''}"><span><strong>${p.name}</strong> (${teams.find(t=>t.id===p.teamId)?.name || 'FA'})</span><span class="col-green">${p[activeLeaderboardTab]}</span></li>`).join('') + `</ul>`;
         }
 
         function renderDashboardAll() {
             calculateStandings();
 
-            // 1. Render Table Standings
-            let tableHtml = "";
-            teams.forEach((t, i) => {
-                tableHtml += `
-                    <tr>
-                        <td><span class="pos-num">${i + 1}</span></td>
-                        <td><strong>${t.name}</strong></td>
-                        <td class="col-center">${t.played}</td>
-                        <td class="col-center">${t.won}</td>
-                        <td class="col-center">${t.drawn}</td>
-                        <td class="col-center">${t.lost}</td>
-                        <td class="col-center">${t.gf}</td>
-                        <td class="col-center">${t.gd}</td>
-                        <td class="col-center col-green">${t.pts}</td>
-                    </tr>`;
-            });
-            document.getElementById("standingsBody").innerHTML = tableHtml || `<tr><td colspan="9" class="empty-state-notice">No teams registered.</td></tr>`;
-
-            // 2. Render Squad Roster Grid View
-            let squadsHtml = "";
-            teams.forEach(t => {
-                let tPlayers = players.filter(p => p.teamId === t.id);
-                let rosterLines = tPlayers.map(p => `<li><span>👤 ${p.name}</span><small style="color:var(--text-muted);">${p.goals} G / ${p.assists} A</small></li>`).join('');
-                squadsHtml += `
-                    <div class="squad-card">
-                        <div class="squad-title-row">
-                            <span><span class="squad-marker"></span>${t.name}</span>
-                            <span class="player-count-badge">${tPlayers.length} Active</span>
-                        </div>
-                        <ul class="squad-desc">${rosterLines || '<li style="color:var(--text-muted)">Empty squad registry.</li>'}</ul>
-                    </div>`;
-            });
-            document.getElementById("squadsGrid").innerHTML = squadsHtml || `<div class="empty-state-notice" style="grid-column:1/-1;">No affiliate clubs logged to populate squads.</div>`;
-
-            // 3. Render Match Center Fixture Processing
-            let query = document.getElementById("matchSearch").value.toLowerCase().trim();
-            let selectedRound = document.getElementById("weekendFilterSelect")?.value || "ALL_ROUNDS";
-            let fixturesHtml = "";
-
-            let filteredMatches = matches.filter(m => {
-                let hName = teams.find(t => t.id === m.homeId)?.name.toLowerCase() || '';
-                let aName = teams.find(t => t.id === m.awayId)?.name.toLowerCase() || '';
-                let matchesQuery = hName.includes(query) || aName.includes(query);
-                let matchesRound = (selectedRound === "ALL_ROUNDS" || m.tag === selectedRound);
+            let makeTableRows = () => teams.map((t, idx) => {
+                let pos = idx + 1;
+                let cls = pos === 1 ? 'first-place-row' : (pos === teams.length && teams.length > 1 ? 'last-place-row' : '');
                 
-                let matchesStatus = true;
-                if (matchFilterState === 'played') matchesStatus = m.completed;
-                if (matchFilterState === 'upcoming') matchesStatus = !m.completed;
-
-                return matchesQuery && matchesRound && matchesStatus;
-            });
-
-            filteredMatches.forEach(m => {
-                let hTeam = teams.find(t => t.id === m.homeId);
-                let aTeam = teams.find(t => t.id === m.awayId);
-                let hName = hTeam ? hTeam.name : 'Deleted Club';
-                let aName = aTeam ? aTeam.name : 'Deleted Club';
-
-                let centerContent = "";
-                if (m.completed) {
-                    centerContent = `<div class="score-row-display">${m.homeScore} - ${m.awayScore}</div>`;
-                } else {
-                    centerContent = `<div class="vs-badge-widget">VS</div>`;
+                let trend = '●';
+                if(historicalPositionsCache[t.id] !== undefined) {
+                    if(historicalPositionsCache[t.id] > pos) trend = '<span class="trend-icon trend-up">▲</span>';
+                    else if(historicalPositionsCache[t.id] < pos) trend = '<span class="trend-icon trend-down">▼</span>';
                 }
+                historicalPositionsCache[t.id] = pos;
 
-                let publicEventsDisplayHtml = "";
-                if (m.completed && m.events && m.events.length > 0) {
-                    let hEvents = "", aEvents = "";
+                let formBadges = getTeamRecentForm(t.id).map(out => `<span class="form-pill-badge ${out === 'W' ? 'win' : (out === 'D' ? 'draw' : 'loss')}">${out}</span>`).join('');
+                if(!formBadges) formBadges = '<span style="color:var(--text-muted); font-size:11px;">-</span>';
+
+                return `<tr class="${cls}">
+                    <td><span class="pos-num">${pos}${trend}</span></td>
+                    <td><strong>${t.name}</strong></td>
+                    <td class="col-center">${t.played}</td>
+                    <td class="col-center">${t.won}</td>
+                    <td class="col-center">${t.drawn}</td>
+                    <td class="col-center">${t.lost}</td>
+                    <td class="col-center">${t.gf}</td>
+                    <td class="col-center">${t.gd}</td>
+                    <td class="col-center col-green">${t.pts}</td>
+                    <td class="col-center"><div class="form-trend-flex-container">${formBadges}</div></td>
+                </tr>`;
+            }).join('');
+
+            if(activeAppPageId === 'dash') document.getElementById("dashStandingsBody").innerHTML = makeTableRows() || `<tr><td colspan="10" class="empty-state-notice">No club profiles logged.</td></tr>`;
+            if(activeAppPageId === 'table') document.getElementById("fullStandingsBody").innerHTML = makeTableRows() || `<tr><td colspan="9" class="empty-state-notice">No club profiles logged.</td></tr>`;
+
+            // --- TRUTHFUL SCORER EVENT COMPILER PANEL ---
+            let generateFixtureRowCard = (m) => {
+                let hName = teams.find(t => t.id === m.homeId)?.name || 'Club';
+                let aName = teams.find(t => t.id === m.awayId)?.name || 'Club';
+                let center = m.completed ? `<div class="score-row-display">${m.homeScore} - ${m.awayScore}</div>` : `<div class="vs-badge-widget">VS</div>`;
+                let badge = m.completed ? `<span class="status-badge">COMPLETED</span>` : `<span class="status-badge unplayed">UNPLAYED</span>`;
+
+                let homeScorers = [];
+                let homeAssists = [];
+                let awayScorers = [];
+                let awayAssists = [];
+
+                if (m.completed && m.events) {
                     m.events.forEach(e => {
-                        let pObj = players.find(x => x.id === e.playerId);
-                        if (!pObj) return;
-                        let typeIndicator = e.type === 'goals' ? '⚽' : (e.type === 'assists' ? '👟' : '⚠️ OG');
-                        let line = `<span class="stat-event-indicator">${pObj.name} <sub>${typeIndicator} (${e.count})</sub></span>`;
-                        if (pObj.teamId === m.homeId) hEvents += line;
-                        else aEvents += line;
+                        let p = players.find(x => x.id === e.playerId);
+                        if (!p) return;
+                        
+                        if (e.type === 'goals') {
+                            if (p.teamId === m.homeId) homeScorers.push(`${p.name} (${e.count})`);
+                            else awayScorers.push(`${p.name} (${e.count})`);
+                        } else if (e.type === 'assists') {
+                            if (p.teamId === m.homeId) homeAssists.push(`${p.name} (${e.count})`);
+                            else awayAssists.push(`${p.name} (${e.count})`);
+                        } else if (e.type === 'ownGoals') {
+                            if (p.teamId === m.homeId) awayScorers.push(`${p.name} (${e.count} OG)`);
+                            else homeScorers.push(`${p.name} (${e.count} OG)`);
+                        }
                     });
-                    if(hEvents || aEvents) {
-                        publicEventsDisplayHtml = `
-                        <div class="public-stats-grid">
-                            <div class="public-team-column">${hEvents || '<span style="color:var(--text-muted); font-size:11px;">-</span>'}</div>
-                            <div class="public-team-column right-align">${aEvents || '<span style="color:var(--text-muted); font-size:11px;">-</span>'}</div>
-                        </div>`;
-                    }
                 }
 
-                let adminFooterBtn = "";
-                if (isAdmin) {
-                    adminFooterBtn = `
-                        <button class="enter-score-btn ${m.completed ? 'edit-mode' : ''}" onclick="openScoreModal('${m.id}')">
-                            ${m.completed ? '⚙️ Modify Match Log Records' : '✍️ Input Score & Match Statistics'}
-                        </button>`;
-                }
+                let homeLayoutHtml = '';
+                if(homeScorers.length > 0) homeLayoutHtml += `<div class="pl-event-line">⚽ ${homeScorers.join(', ')}</div>`;
+                if(homeAssists.length > 0) homeLayoutHtml += `<div class="pl-event-line pl-event-subtext">👟 Assists: ${homeAssists.join(', ')}</div>`;
 
-                fixturesHtml += `
-                <div class="fixture-wrapper-row">
-                    <div class="fixture-card">
-                        <span class="fixture-header-meta">${m.tag} ${m.completed ? '<span class="status-badge">COMPLETED</span>' : '<span class="status-badge unplayed">UNPLAYED</span>'}</span>
-                        <div class="match-main-flex">
-                            <span class="team-name-lbl home-align">${hName}</span>
-                            ${centerContent}
-                            <span class="team-name-lbl away-align">${aName}</span>
+                let awayLayoutHtml = '';
+                if(awayScorers.length > 0) awayLayoutHtml += `<div class="pl-event-line">⚽ ${awayScorers.join(', ')}</div>`;
+                if(awayAssists.length > 0) awayLayoutHtml += `<div class="pl-event-line pl-event-subtext">👟 Assists: ${awayAssists.join(', ')}</div>`;
+
+                let plAccordionPanelHtml = `
+                    <div class="pl-style-events-panel" id="pl-panel-${m.id}">
+                        <div class="pl-columns-grid">
+                            <div class="pl-team-events-col home-side">${homeLayoutHtml || '<span style="color:var(--text-muted); font-style:italic;">-</span>'}</div>
+                            <div class="pl-team-events-col away-side">${awayLayoutHtml || '<span style="color:var(--text-muted); font-style:italic;">-</span>'}</div>
                         </div>
-                        ${publicEventsDisplayHtml}
-                        ${adminFooterBtn}
                     </div>
-                    ${isAdmin ? `<div class="delete-fixture-btn" onclick="deleteFixtureRecord('${m.id}')">🗑️</div>` : ''}
+                `;
+
+                let adminActionButton = isAdmin ? `<button class="enter-score-btn ${m.completed?'edit-mode':''}" onclick="openScoreModal('${m.id}')">${m.completed?'⚙️ Admin Edit Scores':'✍️ Input Scoreline Stats'}</button>` : '';
+
+                return `
+                <div class="fixture-wrapper-row">
+                    <div class="fixture-inner-container">
+                        <div class="fixture-card" onclick="toggleInlinePlPanel('${m.id}')">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <span class="fixture-header-meta" style="margin-bottom:0;">${m.tag}</span>
+                                ${badge}
+                            </div>
+                            <div class="match-main-flex">
+                                <span class="match-team-section home-align">${hName}</span>
+                                ${center}
+                                <span class="match-team-section away-align">${aName}</span>
+                            </div>
+                            ${plAccordionPanelHtml}
+                        </div>
+                        ${isAdmin ? `<div class="delete-fixture-btn" onclick="deleteFixtureRecord('${m.id}')">🗑️</div>` : ''}
+                    </div>
+                    ${adminActionButton}
                 </div>`;
-            });
+            };
 
-            document.getElementById("fixturesContainer").innerHTML = fixturesHtml || `<div class="empty-state-notice">No fixtures line up match search logs criteria.</div>`;
-
-            // 4. Render Dynamic Admin Control Panel Lists
-            if (isAdmin) {
-                let listingContainer = document.getElementById("adminPanelListingItems");
-                listingContainer.innerHTML = "";
+            // --- RENDER RECENT FIXTURES CHRONOLOGICALLY IN DASHBOARD SIDEBARS ---
+            if (activeAppPageId === 'dash') {
+                let validFixtures = matches.filter(m => m.tag !== "GLOBAL STAT OVERRIDE ADJUSTMENT DATA");
                 
-                if (activeAdminSubTab === 'teams') {
-                    teams.forEach(t => {
-                        listingContainer.innerHTML += `
+                let completedMatches = validFixtures.filter(m => m.completed);
+                let last3PlayedHtml = completedMatches.slice(-3).map(generateFixtureRowCard).join('');
+                document.getElementById("dashPlayedTodayContainer").innerHTML = last3PlayedHtml || `<div class="empty-state-notice">No games completed yet.</div>`;
+
+                let upcomingMatches = validFixtures.filter(m => !m.completed);
+                let next3UpcomingHtml = upcomingMatches.slice(0, 3).map(generateFixtureRowCard).join('');
+                document.getElementById("dashUpcomingRemainingContainer").innerHTML = next3UpcomingHtml || `<div class="empty-state-notice">No upcoming scheduled fixtures found.</div>`;
+            }
+
+            // --- MATCH Center PAGE RENDER ---
+            if (activeAppPageId === 'matches') {
+                let q = document.getElementById("matchSearch").value.toLowerCase().trim();
+                let rSelect = document.getElementById("weekendFilterSelect")?.value || "ALL_ROUNDS";
+
+                let matchCenterHtml = matches.filter(m => {
+                    if (m.tag === "GLOBAL STAT OVERRIDE ADJUSTMENT DATA") return false;
+                    let h = teams.find(t => t.id === m.homeId)?.name.toLowerCase() || '';
+                    let a = teams.find(t => t.id === m.awayId)?.name.toLowerCase() || '';
+                    
+                    return (h.includes(q) || a.includes(q)) && 
+                           (rSelect === "ALL_ROUNDS" || m.tag === rSelect) &&
+                           (matchFilterState === 'all' || (matchFilterState === 'played' ? m.completed : !m.completed));
+                }).map(generateFixtureRowCard).join('');
+
+                document.getElementById("fixturesContainer").innerHTML = matchCenterHtml || `<div class="empty-state-notice">No matching fixtures found.</div>`;
+            }
+
+            // --- SQUADS DIRECTORY RENDER ---
+            if (activeAppPageId === 'squads') {
+                document.getElementById("squadsGrid").innerHTML = teams.map(t => `
+                    <div class="squad-card">
+                        <div class="squad-title-row" onclick="openSquadPopupModal('${t.id}')">
+                            <span><span class="squad-marker"></span><strong>${t.name}</strong></span>
+                            <span class="player-count-badge">${players.filter(p => p.teamId === t.id).length} Active Roster ↗</span>
+                        </div>
+                    </div>`).join('') || `<div class="empty-state-notice">No registered club profiles found.</div>`;
+            }
+
+            // --- ADMIN WRITER AREA PANELS ---
+            if (isAdmin) {
+                let listEl = document.getElementById("adminPanelListingItems");
+                if(listEl) {
+                    listEl.innerHTML = activeAdminSubTab === 'teams' ? teams.map(t => `
                         <li class="management-item">
-                            <strong>🛡️ ${t.name}</strong>
-                            <div class="item-action-links">
-                                <span class="action-link rename" onclick="renameTeam('${t.id}')">Rename</span>
-                                <span class="action-link delete" onclick="deleteTeam('${t.id}')">Delete</span>
+                            <div><strong>🛡️ ${t.name}</strong><div style="font-size:10px; color:var(--text-muted);">Manager: ${t.manager || 'None'}</div></div>
+                            <div class="item-action-links"><span class="action-link rename" onclick="renameTeam('${t.id}')">Modify</span><span class="action-link delete" onclick="deleteTeam('${t.id}')">Delete</span></div>
+                        </li>`).join('') : players.map(p => `
+                        <li class="management-item" style="flex-direction:column; align-items:stretch; gap:4px;">
+                            <div style="display:flex; justify-content:space-between;"><strong>👤 ${p.name} <small style="color:var(--text-muted);">(${teams.find(t=>t.id===p.teamId)?.name || 'FA'})</small></strong><span class="action-link delete" onclick="unregisterPlayer('${p.id}')">Remove</span></div>
+                            <div style="display:flex; gap:8px;">
+                                <div class="modifier-controls"><span class="stat-badge-info">G: ${p.goals}</span><button class="modifier-btn" onclick="changePlayerStat('${p.id}','goals',1)">+</button><button class="modifier-btn" onclick="changePlayerStat('${p.id}','goals',-1)">-</button></div>
+                                <div class="modifier-controls"><span class="stat-badge-info">A: ${p.assists}</span><button class="modifier-btn" onclick="changePlayerStat('${p.id}','assists',1)">+</button><button class="modifier-btn" onclick="changePlayerStat('${p.id}','assists',-1)">-</button></div>
+                                <div class="modifier-controls"><span class="stat-badge-info">OG: ${p.ownGoals}</span><button class="modifier-btn" onclick="changePlayerStat('${p.id}','ownGoals',1)">+</button><button class="modifier-btn" onclick="changePlayerStat('${p.id}','ownGoals',-1)">-</button></div>
                             </div>
-                        </li>`;
-                    });
-                } else {
-                    players.forEach(p => {
-                        let assocTeam = teams.find(t => t.id === p.teamId)?.name || "Free Agent";
-                        listingContainer.innerHTML += `
-                        <li class="management-item" style="flex-direction:column; align-items:stretch; gap:6px;">
-                            <div style="display:flex; justify-content:space-between;">
-                                <strong>👤 ${p.name} <span style="font-weight:normal; font-size:11px; color:var(--text-muted);">(${assocTeam})</span></strong>
-                                <span class="action-link delete" onclick="unregisterPlayer('${p.id}')">Unregister</span>
-                            </div>
-                            <div style="display:flex; gap:12px; margin-top:2px;">
-                                <div class="modifier-controls">
-                                    <span class="stat-badge-info">Goals: ${p.goals}</span>
-                                    <button class="modifier-btn" onclick="changePlayerStat('${p.id}', 'goals', 1)">+</button>
-                                    <button class="modifier-btn" onclick="changePlayerStat('${p.id}', 'goals', -1)">-</button>
-                                </div>
-                                <div class="modifier-controls">
-                                    <span class="stat-badge-info">Assists: ${p.assists}</span>
-                                    <button class="modifier-btn" onclick="changePlayerStat('${p.id}', 'assists', 1)">+</button>
-                                    <button class="modifier-btn" onclick="changePlayerStat('${p.id}', 'assists', -1)">-</button>
-                                </div>
-                                <div class="modifier-controls">
-                                    <span class="stat-badge-info">OG: ${p.ownGoals}</span>
-                                    <button class="modifier-btn" onclick="changePlayerStat('${p.id}', 'ownGoals', 1)">+</button>
-                                    <button class="modifier-btn" onclick="changePlayerStat('${p.id}', 'ownGoals', -1)">-</button>
-                                </div>
-                            </div>
-                        </li>`;
-                    });
+                        </li>`).join('');
                 }
             }
 
