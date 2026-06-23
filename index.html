@@ -54,28 +54,59 @@
             z-index: 99;
         }
 
+        /* APPEALING CREST LOGO DESIGN */
         .sidebar-brand {
             display: flex;
             align-items: center;
             gap: 12px;
             margin-bottom: 32px;
-            padding-left: 8px;
+            padding-left: 4px;
+            text-decoration: none;
         }
 
-        .logo-branding-svg {
+        .league-logo-crest {
+            position: relative;
             width: 38px;
-            height: 38px;
-            background: linear-gradient(135deg, #06b6d4, #10b981);
-            padding: 6px;
-            border-radius: 8px;
-            box-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
+            height: 42px;
+            background: linear-gradient(135deg, var(--accent-cyan), #0284c7);
+            clip-path: polygon(0% 0%, 100% 0%, 100% 75%, 50% 100%, 0% 75%);
             display: flex;
             align-items: center;
             justify-content: center;
+            box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
         }
 
-        .logo-text { font-size: 18px; font-weight: 800; letter-spacing: 1px; }
-        .logo-text span { color: var(--accent-cyan); }
+        .league-logo-crest::after {
+            content: 'SL';
+            font-size: 15px;
+            font-weight: 900;
+            color: #05070a;
+            letter-spacing: 0.5px;
+            position: relative;
+            bottom: 1px;
+        }
+
+        .league-logo-star {
+            position: absolute;
+            top: 3px;
+            font-size: 7px;
+            color: #fff;
+        }
+
+        .logo-text { 
+            font-size: 16px; 
+            font-weight: 800; 
+            letter-spacing: 0.5px; 
+            line-height: 1.1;
+        }
+        .logo-text span { 
+            display: block;
+            font-size: 11px;
+            color: var(--text-muted); 
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 2px;
+        }
 
         .sidebar-menu {
             display: flex;
@@ -408,25 +439,21 @@
         .popup-roster-list { list-style: none; max-height: 250px; overflow-y: auto; }
         .popup-roster-list li { padding: 10px 0; display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255, 255, 255, 0.05); font-size: 14px; }
         
-        .match-event-row { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 6px; align-items: center; margin-bottom: 6px; background: #05070a; padding: 6px; border-radius: 6px; font-size: 12px; }
+        .match-event-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr 1.1fr; gap: 6px; align-items: center; margin-bottom: 6px; background: #05070a; padding: 6px; border-radius: 6px; font-size: 12px; }
         .stat-input-small { width: 100%; background: #0b1119; border: 1px solid var(--border-color); color: #fff; padding: 4px; text-align: center; border-radius: 4px; }
         .empty-state-notice { text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; }
     </style>
 </head>
 <body>
 
+    <!-- SIDEBAR PANELS LAYER -->
     <nav class="sidebar">
-        <div class="sidebar-brand">
-            <div class="logo-branding-svg">
-                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M20 45 L35 25 L50 40 L65 25 L80 45 L75 75 L25 75 Z" fill="#05070a"/>
-                    <path d="M50 15 L58 30 L75 32 L62 43 L66 60 L50 50 L34 60 L38 43 L25 32 L42 30 Z" fill="#ffffff"/>
-                    <circle cx="50" cy="70" r="6" fill="#06b6d4"/>
-                    <circle cx="30" cy="45" r="4" fill="#10b981"/>
-                    <circle cx="70" cy="45" r="4" fill="#10b981"/>
-                </svg>
+        <div class="sidebar-brand" style="cursor: pointer;" onclick="switchAppPage('dash')">
+            <!-- Sleek CSS Football Shield Crest Logo -->
+            <div class="league-logo-crest">
+                <span class="league-logo-star">★</span>
             </div>
-            <div class="logo-text">SUPER <span>LEAGUE</span></div>
+            <div class="logo-text">SUPER LEAGUE<span>Official Portal</span></div>
         </div>
 
         <ul class="sidebar-menu">
@@ -441,6 +468,7 @@
         </div>
     </nav>
 
+    <!-- CONTENT MODULE VIEWPORT -->
     <main class="main-content">
         <div class="welcome-admin-banner" id="adminWelcomeBanner">
             👋 Welcome Guidance!! Premium League Write Capabilities Activated.
@@ -454,8 +482,10 @@
             <div class="sandbox-badge"><div class="sandbox-dot"></div>Cloud Synchronized System</div>
         </header>
 
+        <!-- SUB-PAGE 1: DASHBOARD OVERVIEW -->
         <div id="page-dash" class="app-page active">
             <div class="grid-two-columns">
+                <!-- Left Column: League Standings & Leaderboard Micro-Cards Below -->
                 <div>
                     <div class="card-wrapper">
                         <div class="section-header">
@@ -481,6 +511,7 @@
                         </table>
                     </div>
 
+                    <!-- Side-by-Side Top Scorer & Assistor Mini Blocks Below Standings -->
                     <div class="mini-leaders-flex-container">
                         <div class="mini-leader-card">
                             <span class="mini-leader-title">🔥 Top Goal Scorer</span>
@@ -495,6 +526,7 @@
                     </div>
                 </div>
 
+                <!-- Right Column: Match Day Schedules (3 Last Played & 3 Next Upcoming) -->
                 <div class="card-wrapper">
                     <h2>Match Day Schedules</h2>
                     <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">Chronological recent results and next scheduled fixtures.</p>
@@ -508,6 +540,7 @@
             </div>
         </div>
 
+        <!-- SUB-PAGE 2: STANDINGS & STAT LEADERBOARDS -->
         <div id="page-table" class="app-page">
             <div class="grid-two-columns">
                 <div class="card-wrapper">
@@ -522,6 +555,7 @@
                                 <th class="col-center">W</th>
                                 <th class="col-center">D</th>
                                 <th class="col-center">L</th>
+                                <th class="col-center">GF</th>
                                 <th class="col-center">GD</th>
                                 <th class="col-center" style="color:var(--accent-green)">PTS</th>
                                 <th class="col-center" style="width: 85px;">Form</th>
@@ -543,6 +577,7 @@
             </div>
         </div>
 
+        <!-- SUB-PAGE 3: MATCH CENTER (FULL WIDTH ACCORDION) -->
         <div id="page-matches" class="app-page">
             <div class="card-wrapper">
                 <div class="section-header">
@@ -577,11 +612,13 @@
             </div>
         </div>
 
+        <!-- SUB-PAGE 4: SQUADS ROSTER DIRECTORY -->
         <div id="page-squads" class="app-page">
             <div class="card-wrapper">
                 <h2>Club Squad Rosters</h2>
                 <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">Select an individual soccer club team block asset to inspect structural registration player squads.</p>
                 
+                <!-- Player Search Engine Widget Box -->
                 <div class="match-filters-box" style="margin-bottom: 20px; padding: 10px;">
                     <div class="search-wrapper-container">
                         <span class="search-icon-inside">🔍</span>
@@ -594,6 +631,7 @@
             </div>
         </div>
 
+        <!-- ADMIN CONFIG LAYER WORKSPACE -->
         <div class="admin-panel-card" id="adminControlPanel">
             <div class="section-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
                 <h2>🛡️ Administrative Management</h2>
@@ -612,6 +650,7 @@
         </div>
     </main>
 
+    <!-- AUTH OVERLAY SYSTEM -->
     <div id="portalOverlay" class="modal-overlay">
         <div class="admin-modal">
             <button class="close-modal-btn" onclick="closeAdminModal()">×</button>
@@ -622,12 +661,14 @@
         </div>
     </div>
 
+    <!-- SQUAD ROSTER OVERLAY POPUP -->
     <div id="squadPopupModal" class="modal-overlay">
         <div class="admin-modal" style="width: 480px;">
             <button class="close-modal-btn" onclick="closeSquadPopupModal()">×</button>
             <div class="modal-title" id="squadPopupTitle">Team Roster</div>
             <div style="background:rgba(6, 182, 212, 0.05); border:1px dashed rgba(6, 182, 212, 0.3); border-radius:6px; padding:10px; font-size:13px; margin-bottom:10px;" id="squadPopupManager">Manager: -</div>
             
+            <!-- Club Top Mini Leaders Stats Extension Box -->
             <div style="display: flex; gap: 10px; margin-bottom: 14px;">
                 <div style="flex: 1; background: #05070a; border: 1px solid var(--border-color); padding: 8px; border-radius: 6px; font-size: 11px;">
                     <span style="display: block; color: var(--text-muted); font-weight: bold; text-transform: uppercase;">🔥 Club Top Scorer</span>
@@ -643,18 +684,30 @@
         </div>
     </div>
 
+    <!-- MATCH SCORE RECORDING SYSTEM SHEET -->
     <div id="scoreLoggerModal" class="modal-overlay">
-        <div class="admin-modal" style="width: 520px;">
+        <div class="admin-modal" style="width: 560px;">
             <button class="close-modal-btn" onclick="closeScoreModal()">×</button>
             <div class="modal-title" id="scoreModalTitle">Match Report Sheet</div>
             <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">Configure goals, assists, and own goal statistics for individual players on both rosters.</p>
             
             <div style="display:flex; gap:16px; margin-bottom:16px;" id="modalScoreInputsRow"></div>
+            
+            <!-- Header for inputs row inside spreadsheet popup view -->
+            <div style="display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr 1.1fr; gap: 6px; padding: 0 6px; margin-bottom: 6px; font-size: 11px; font-weight: bold; color: var(--text-muted); text-transform: uppercase;">
+                <span>Player</span>
+                <span style="text-align:center;">Goals</span>
+                <span style="text-align:center;">Assists</span>
+                <span style="text-align:center;">OG</span>
+                <span style="text-align:center;">Goal Type</span>
+            </div>
+            
             <div id="modalPlayersEventsList" style="max-height: 220px; overflow-y: auto; margin-bottom: 16px;"></div>
             <button class="authorize-btn" id="btnSaveScoreRecord" onclick="saveMatchEventsData()">Save Match Records</button>
         </div>
     </div>
 
+    <!-- MANUAL FIXTURES POPUP CONSOLE -->
     <div id="manualMatchModal" class="modal-overlay">
         <div class="admin-modal" style="width: 440px;">
             <button class="close-modal-btn" onclick="toggleManualMatchModal(false)">×</button>
@@ -720,7 +773,6 @@
             if(pageId === 'squads') headingText = "Club Squad Rosters";
             document.getElementById("pageMainHeading").innerText = headingText;
 
-            // Clear squad lookup engine inputs on switch resets
             if (pageId === 'squads') {
                 let searchBox = document.getElementById("playerSquadSearch");
                 if (searchBox) { searchBox.value = ""; searchPlayersRosterEngine(); }
@@ -859,20 +911,21 @@
             
             let tPlayers = players.filter(p => p.teamId === teamId);
             
-            // Calculate club level localized mini-leaders
             let clubTopScorer = [...tPlayers].sort((a,b) => b.goals - a.goals || b.assists - a.assists)[0];
             let clubTopAssistor = [...tPlayers].sort((a,b) => b.assists - a.assists || b.goals - a.goals)[0];
 
             document.getElementById("clubPopupTopScorer").innerText = (clubTopScorer && clubTopScorer.goals > 0) ? `${clubTopScorer.name} (${clubTopScorer.goals} G)` : "None Registered";
             document.getElementById("clubPopupTopAssistor").innerText = (clubTopAssistor && clubTopAssistor.assists > 0) ? `${clubTopAssistor.name} (${clubTopAssistor.assists} A)` : "None Registered";
 
-            let rosterHtml = tPlayers.map(p => `<li><span>👤 <strong>${p.name}</strong></span><small style="color:var(--accent-cyan); font-weight:600;">${p.goals} G / ${p.assists} A</small></li>`).join('');
+            let rosterHtml = tPlayers.map(p => {
+                return `<li><span>👤 <strong>${p.name}</strong></span><small style="color:var(--accent-cyan); font-weight:600;">${p.goals} G / ${p.assists} A</small></li>`;
+            }).join('');
+
             document.getElementById("squadPopupRosterList").innerHTML = rosterHtml || `<div class="empty-state-notice">No active player metrics assigned.</div>`;
             document.getElementById("squadPopupModal").classList.add("active");
         }
         function closeSquadPopupModal() { document.getElementById("squadPopupModal").classList.remove("active"); }
 
-        // --- LOOKUP PLAYER ENGINE IMPLEMENTATION ---
         function searchPlayersRosterEngine() {
             let val = document.getElementById("playerSquadSearch").value.toLowerCase().trim();
             let wrapper = document.getElementById("playerSearchEngineContainer");
@@ -923,9 +976,11 @@
 
             matchRosterPlayers.forEach(p => {
                 let pTeam = teams.find(t => t.id === p.teamId)?.name || '';
-                let g = 0, a = 0, og = 0;
+                let g = 0, a = 0, og = 0, sType = "regular";
                 if(m.events) {
-                    g = m.events.find(e => e.playerId === p.id && e.type === 'goals')?.count || 0;
+                    let gEvt = m.events.find(e => e.playerId === p.id && e.type === 'goals');
+                    g = gEvt?.count || 0;
+                    sType = gEvt?.scoringType || "regular";
                     a = m.events.find(e => e.playerId === p.id && e.type === 'assists')?.count || 0;
                     og = m.events.find(e => e.playerId === p.id && e.type === 'ownGoals')?.count || 0;
                 }
@@ -935,6 +990,12 @@
                     <div><input type="number" class="stat-input-small p-goals" value="${g}" min="0"></div>
                     <div><input type="number" class="stat-input-small p-assists" value="${a}" min="0"></div>
                     <div><input type="number" class="stat-input-small p-own-goals" value="${og}" min="0"></div>
+                    <div>
+                        <select class="stat-input-small p-goal-type" style="font-size:11px; padding:3px 2px;">
+                            <option value="regular" ${sType==='regular'?'selected':''}>Goal</option>
+                            <option value="penalty" ${sType==='penalty'?'selected':''}>Penalty</option>
+                        </select>
+                    </div>
                 </div>`;
             });
 
@@ -956,8 +1017,9 @@
                 let g = parseInt(row.querySelector(".p-goals").value) || 0;
                 let a = parseInt(row.querySelector(".p-assists").value) || 0;
                 let og = parseInt(row.querySelector(".p-own-goals").value) || 0;
+                let goalType = row.querySelector(".p-goal-type").value;
 
-                if(g > 0) m.events.push({ playerId: pId, type: 'goals', count: g });
+                if(g > 0) m.events.push({ playerId: pId, type: 'goals', count: g, scoringType: goalType });
                 if(a > 0) m.events.push({ playerId: pId, type: 'assists', count: a });
                 if(og > 0) m.events.push({ playerId: pId, type: 'ownGoals', count: og });
             });
@@ -990,6 +1052,7 @@
             persistDatabaseState();
         }
         function unregisterPlayer(id) { if(confirm("Unregister player profile?")) { players = players.filter(p => p.id !== id); persistDatabaseState(); } }
+        
         function changePlayerStat(pId, type, amt) {
             let adjustMatch = matches.find(m => m.tag === "GLOBAL STAT OVERRIDE ADJUSTMENT DATA");
             if (!adjustMatch) {
@@ -997,8 +1060,12 @@
                 matches.push(adjustMatch);
             }
             let ev = adjustMatch.events.find(e => e.playerId === pId && e.type === type);
-            if (ev) { ev.count += amt; if(ev.count <= 0) adjustMatch.events = adjustMatch.events.filter(e => e !== ev); }
-            else if (amt > 0) { adjustMatch.events.push({ playerId: pId, type: type, count: amt }); }
+            if (ev) { 
+                ev.count += amt; 
+                if(ev.count <= 0) adjustMatch.events = adjustMatch.events.filter(e => e !== ev); 
+            } else if (amt > 0) { 
+                adjustMatch.events.push({ playerId: pId, type: type, count: amt, scoringType: 'regular' }); 
+            }
             persistDatabaseState();
         }
 
@@ -1081,7 +1148,9 @@
         function renderLeaderboardOnly() {
             let sorted = [...players].filter(p => p[activeLeaderboardTab] > 0).sort((a,b) => b[activeLeaderboardTab] - a[activeLeaderboardTab]);
             document.getElementById("leaderboardContent").innerHTML = sorted.length === 0 ? `<div class="empty-state-notice">No milestone stats records matching logged criteria.</div>` : 
-                `<ul style="list-style:none;">` + sorted.map((p, idx) => `<li class="leaderboard-row ${idx===0?'top-tier-highlight':''}"><span><strong>${p.name}</strong> (${teams.find(t=>t.id===p.teamId)?.name || 'FA'})</span><span class="col-green">${p[activeLeaderboardTab]}</span></li>`).join('') + `</ul>`;
+                `<ul style="list-style:none;">` + sorted.map((p, idx) => {
+                    return `<li class="leaderboard-row ${idx===0?'top-tier-highlight':''}"><span><strong>${p.name}</strong> (${teams.find(t=>t.id===p.teamId)?.name || 'FA'})</span><span class="col-green">${p[activeLeaderboardTab]}</span></li>`;
+                }).join('') + `</ul>`;
         }
 
         function renderDashboardAll() {
@@ -1116,9 +1185,8 @@
             }).join('');
 
             if(activeAppPageId === 'dash') document.getElementById("dashStandingsBody").innerHTML = makeTableRows() || `<tr><td colspan="10" class="empty-state-notice">No club profiles logged.</td></tr>`;
-            if(activeAppPageId === 'table') document.getElementById("fullStandingsBody").innerHTML = makeTableRows() || `<tr><td colspan="9" class="empty-state-notice">No club profiles logged.</td></tr>`;
+            if(activeAppPageId === 'table') document.getElementById("fullStandingsBody").innerHTML = makeTableRows() || `<tr><td colspan="10" class="empty-state-notice">No club profiles logged.</td></tr>`;
 
-            // --- TRUTHFUL SCORER EVENT COMPILER PANEL ---
             let generateFixtureRowCard = (m) => {
                 let hName = teams.find(t => t.id === m.homeId)?.name || 'Club';
                 let aName = teams.find(t => t.id === m.awayId)?.name || 'Club';
@@ -1135,9 +1203,11 @@
                         let p = players.find(x => x.id === e.playerId);
                         if (!p) return;
                         
+                        let penaltyMarker = e.scoringType === 'penalty' ? " (P)" : "";
+
                         if (e.type === 'goals') {
-                            if (p.teamId === m.homeId) homeScorers.push(`${p.name} (${e.count})`);
-                            else awayScorers.push(`${p.name} (${e.count})`);
+                            if (p.teamId === m.homeId) homeScorers.push(`${p.name}${penaltyMarker} (${e.count})`);
+                            else awayScorers.push(`${p.name}${penaltyMarker} (${e.count})`);
                         } else if (e.type === 'assists') {
                             if (p.teamId === m.homeId) homeAssists.push(`${p.name} (${e.count})`);
                             else awayAssists.push(`${p.name} (${e.count})`);
@@ -1188,7 +1258,6 @@
                 </div>`;
             };
 
-            // --- RENDER RECENT FIXTURES CHRONOLOGICALLY IN DASHBOARD SIDEBARS ---
             if (activeAppPageId === 'dash') {
                 let validFixtures = matches.filter(m => m.tag !== "GLOBAL STAT OVERRIDE ADJUSTMENT DATA");
                 
@@ -1201,7 +1270,6 @@
                 document.getElementById("dashUpcomingRemainingContainer").innerHTML = next3UpcomingHtml || `<div class="empty-state-notice">No upcoming scheduled fixtures found.</div>`;
             }
 
-            // --- MATCH Center PAGE RENDER ---
             if (activeAppPageId === 'matches') {
                 let q = document.getElementById("matchSearch").value.toLowerCase().trim();
                 let rSelect = document.getElementById("weekendFilterSelect")?.value || "ALL_ROUNDS";
@@ -1219,7 +1287,6 @@
                 document.getElementById("fixturesContainer").innerHTML = matchCenterHtml || `<div class="empty-state-notice">No matching fixtures found.</div>`;
             }
 
-            // --- SQUADS DIRECTORY RENDER ---
             if (activeAppPageId === 'squads') {
                 document.getElementById("squadsGrid").innerHTML = teams.map(t => `
                     <div class="squad-card">
@@ -1230,7 +1297,6 @@
                     </div>`).join('') || `<div class="empty-state-notice">No registered club profiles found.</div>`;
             }
 
-            // --- ADMIN WRITER AREA PANELS ---
             if (isAdmin) {
                 let listEl = document.getElementById("adminPanelListingItems");
                 if(listEl) {
