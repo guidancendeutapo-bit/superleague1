@@ -502,6 +502,7 @@
                                     <th class="col-center">D</th>
                                     <th class="col-center">L</th>
                                     <th class="col-center">GF</th>
+                                    <th class="col-center">GA</th>
                                     <th class="col-center">GD</th>
                                     <th class="col-center" style="color:var(--accent-green)">PTS</th>
                                     <th class="col-center" style="width: 85px;">Form</th>
@@ -556,6 +557,7 @@
                                 <th class="col-center">D</th>
                                 <th class="col-center">L</th>
                                 <th class="col-center">GF</th>
+                                <th class="col-center">GA</th>
                                 <th class="col-center">GD</th>
                                 <th class="col-center" style="color:var(--accent-green)">PTS</th>
                                 <th class="col-center" style="width: 85px;">Form</th>
@@ -570,7 +572,6 @@
                     <div class="leaderboard-tabs" id="leadTabs" style="margin-top:12px;">
                         <button class="tab-btn active" onclick="switchLeaderboardTab('goals')">🏆 Goals</button>
                         <button class="tab-btn" onclick="switchLeaderboardTab('assists')">👟 Assists</button>
-                        <button class="tab-btn" onclick="switchLeaderboardTab('ownGoals')">⚠️ OG</button>
                     </div>
                     <div id="leaderboardContent"></div>
                 </div>
@@ -1178,14 +1179,15 @@
                     <td class="col-center">${t.drawn}</td>
                     <td class="col-center">${t.lost}</td>
                     <td class="col-center">${t.gf}</td>
+                    <td class="col-center">${t.ga}</td>
                     <td class="col-center">${t.gd}</td>
                     <td class="col-center col-green">${t.pts}</td>
                     <td class="col-center"><div class="form-trend-flex-container">${formBadges}</div></td>
                 </tr>`;
             }).join('');
 
-            if(activeAppPageId === 'dash') document.getElementById("dashStandingsBody").innerHTML = makeTableRows() || `<tr><td colspan="10" class="empty-state-notice">No club profiles logged.</td></tr>`;
-            if(activeAppPageId === 'table') document.getElementById("fullStandingsBody").innerHTML = makeTableRows() || `<tr><td colspan="10" class="empty-state-notice">No club profiles logged.</td></tr>`;
+            if(activeAppPageId === 'dash') document.getElementById("dashStandingsBody").innerHTML = makeTableRows() || `<tr><td colspan="11" class="empty-state-notice">No club profiles logged.</td></tr>`;
+            if(activeAppPageId === 'table') document.getElementById("fullStandingsBody").innerHTML = makeTableRows() || `<tr><td colspan="11" class="empty-state-notice">No club profiles logged.</td></tr>`;
 
             let generateFixtureRowCard = (m) => {
                 let hName = teams.find(t => t.id === m.homeId)?.name || 'Club';
