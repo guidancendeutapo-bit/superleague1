@@ -432,6 +432,99 @@
         .stat-input-small { width: 100%; background: #0b1119; border: 1px solid var(--border-color); color: #fff; padding: 4px; text-align: center; border-radius: 4px; }
         .empty-state-notice { text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; }
 
+        /* NOTIFICATION BELL */
+        .notif-bell-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+            margin-left: 4px;
+        }
+        .notif-bell-icon { font-size: 18px; transition: transform 0.2s; }
+        .notif-bell-wrap:hover .notif-bell-icon { transform: rotate(-15deg) scale(1.15); }
+        .notif-badge {
+            position: absolute;
+            top: -4px; right: -6px;
+            background: var(--danger-red);
+            color: #fff;
+            font-size: 9px;
+            font-weight: 800;
+            border-radius: 10px;
+            padding: 1px 5px;
+            min-width: 16px;
+            text-align: center;
+            display: none;
+            animation: bellPop 0.3s ease;
+        }
+        @keyframes bellPop { 0%{transform:scale(0)}60%{transform:scale(1.3)}100%{transform:scale(1)} }
+
+        /* 2-COLUMN NEWS GRID */
+        .news-feed-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        @media (max-width: 900px) { .news-feed-grid { grid-template-columns: 1fr; } }
+
+        /* PLAYER EDIT MODAL */
+        .edit-player-modal {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .edit-player-modal.active { display: flex; }
+        .edit-player-box {
+            background: #0b1520;
+            border: 1px solid rgba(6,182,212,0.3);
+            border-radius: 12px;
+            padding: 24px;
+            width: 360px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .edit-player-box h3 { font-size: 15px; font-weight: 800; color: #fff; margin: 0; }
+
+        /* GAME SECTION GROUPING */
+        .game-section { margin-bottom: 28px; }
+        .game-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            background: linear-gradient(90deg, rgba(6,182,212,0.1), rgba(6,182,212,0.02));
+            border-left: 3px solid var(--accent-cyan);
+            border-radius: 0 6px 6px 0;
+            margin-bottom: 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .game-section-header:hover { background: linear-gradient(90deg, rgba(6,182,212,0.16), rgba(6,182,212,0.04)); }
+        .game-section-title {
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+        .game-section-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .game-section-toggle {
+            font-size: 11px;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+        }
+        .game-section-body { display: block; }
+        .game-section-body.collapsed { display: none; }
+
         /* --- NEWS FEATURE --- */
         .news-category-badge {
             display: inline-block;
@@ -545,7 +638,13 @@
             <li class="menu-item" id="nav-table" onclick="switchAppPage('table')"><button>📊 Standings & Stats</button></li>
             <li class="menu-item" id="nav-matches" onclick="switchAppPage('matches')"><button>📅 Match Center</button></li>
             <li class="menu-item" id="nav-squads" onclick="switchAppPage('squads')"><button>👥 Team Squads</button></li>
-            <li class="menu-item" id="nav-news" onclick="switchAppPage('news')"><button>📰 News & Updates</button></li>
+            <li class="menu-item" id="nav-news" onclick="switchAppPage('news'); clearNewsBadge()" style="display:flex; align-items:center; justify-content:space-between; padding-right:10px;">
+                <button style="flex:1;">📰 News & Updates</button>
+                <div class="notif-bell-wrap" onclick="switchAppPage('news'); clearNewsBadge()" title="New posts available">
+                    <span class="notif-bell-icon">🔔</span>
+                    <span class="notif-badge" id="newsBellBadge">0</span>
+                </div>
+            </li>
         </ul>
 
         <div class="sidebar-footer">
@@ -570,7 +669,7 @@
         <!-- SUB-PAGE 1: DASHBOARD OVERVIEW -->
         <div id="page-dash" class="app-page active">
             <!-- News Ticker Banner -->
-            <div class="news-ticker" id="dashNewsTicker" style="display:none;">
+            <div class="news-ticker" id="dashNewsTicker" style="display:none; cursor:pointer;" onclick="switchAppPage('news'); clearNewsBadge()" title="Click to view all news">
                 <span class="news-ticker-label">📰 Latest</span>
                 <span class="news-ticker-text" id="dashNewsTickerText"></span>
             </div>
@@ -724,55 +823,53 @@
 
         <!-- SUB-PAGE 5: NEWS & UPDATES -->
         <div id="page-news" class="app-page">
-            <div class="grid-two-columns">
-                <div class="card-wrapper">
-                    <h2>News & Updates Feed</h2>
-                    <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">League announcements, match day news and more.</p>
-                    <div id="newsFeedContainer"><div class="empty-state-notice">No news posts yet.</div></div>
-                </div>
-                <div class="card-wrapper" id="newsAdminPostPanel" style="display:none;">
-                    <h2>📝 Post News</h2>
-                    <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">Use the AI assistant to help you write, or fill in manually.</p>
-                    <div style="display:flex; flex-direction:column; gap:10px;">
-
-                        <!-- AI ASSISTANT BOX -->
-                        <div style="background:#05070a; border:1px solid rgba(6,182,212,0.25); border-radius:8px; padding:14px;">
-                            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
-                                <span style="font-size:16px;">🤖</span>
-                                <span style="font-size:12px; font-weight:700; color:var(--accent-cyan); text-transform:uppercase; letter-spacing:0.8px;">AI News Assistant</span>
-                            </div>
-                            <label class="form-label">Tell the AI what the news is about</label>
-                            <textarea id="aiNewsPrompt" class="text-field-widget" rows="3" placeholder="e.g. Deez Nutz FC beat MPK 3-1 in round 7, it was an exciting match..." style="resize:none; margin-bottom:8px;"></textarea>
-                            <button onclick="generateAINewsOptions()" id="aiGenerateBtn" style="width:100%; background:linear-gradient(90deg,#06b6d4,#0284c7); color:#05070a; border:none; padding:10px; border-radius:6px; font-weight:700; font-size:13px; cursor:pointer;">✨ Generate Options</button>
-                            <!-- AI Options appear here -->
-                            <div id="aiOptionsContainer" style="display:none; margin-top:12px;">
-                                <label class="form-label" style="margin-bottom:8px;">Pick the best option — it will fill in the form below</label>
-                                <div id="aiOptionsList" style="display:flex; flex-direction:column; gap:8px;"></div>
-                            </div>
+            <!-- Admin Post Panel (full width, collapsible) -->
+            <div class="card-wrapper" id="newsAdminPostPanel" style="display:none; margin-bottom:20px;">
+                <h2>📝 Post News</h2>
+                <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">Use the AI assistant to help you write, or fill in manually.</p>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+                    <!-- AI ASSISTANT BOX -->
+                    <div style="background:#05070a; border:1px solid rgba(6,182,212,0.25); border-radius:8px; padding:14px;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                            <span style="font-size:16px;">🤖</span>
+                            <span style="font-size:12px; font-weight:700; color:var(--accent-cyan); text-transform:uppercase; letter-spacing:0.8px;">AI News Assistant</span>
                         </div>
-
-                        <div style="border-top:1px dashed var(--border-color); padding-top:10px;">
-                            <div>
-                                <label class="form-label">Category</label>
-                                <select id="newsCategory" class="news-category-select">
-                                    <option value="announcement">📢 Announcement</option>
-                                    <option value="matchday">⚽ Match Day</option>
-                                    <option value="transfer">🔄 Transfer / Registration</option>
-                                    <option value="general">📌 General</option>
-                                </select>
-                            </div>
-                            <div style="margin-top:8px;">
-                                <label class="form-label">Headline</label>
-                                <input type="text" id="newsTitle" class="text-field-widget" placeholder="e.g. Round 6 fixtures confirmed">
-                            </div>
-                            <div style="margin-top:8px;">
-                                <label class="form-label">Full Message</label>
-                                <textarea id="newsBody" class="text-field-widget" rows="4" placeholder="Write the full news content here..." style="resize:vertical; line-height:1.6;"></textarea>
-                            </div>
-                            <button class="register-action-btn" style="margin-top:10px;" onclick="publishNewsPost()">📤 Publish Post</button>
+                        <label class="form-label">Tell the AI what the news is about</label>
+                        <textarea id="aiNewsPrompt" class="text-field-widget" rows="3" placeholder="e.g. Deez Nutz FC beat MPK 3-1 in round 7, it was an exciting match..." style="resize:none; margin-bottom:8px;"></textarea>
+                        <button onclick="generateAINewsOptions()" id="aiGenerateBtn" style="width:100%; background:linear-gradient(90deg,#06b6d4,#0284c7); color:#05070a; border:none; padding:10px; border-radius:6px; font-weight:700; font-size:13px; cursor:pointer;">✨ Generate Options</button>
+                        <div id="aiOptionsContainer" style="display:none; margin-top:12px;">
+                            <label class="form-label" style="margin-bottom:8px;">Pick the best option — it will fill in the form below</label>
+                            <div id="aiOptionsList" style="display:flex; flex-direction:column; gap:8px;"></div>
                         </div>
                     </div>
+                    <!-- MANUAL POST FORM -->
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <div>
+                            <label class="form-label">Category</label>
+                            <select id="newsCategory" class="news-category-select">
+                                <option value="announcement">📢 Announcement</option>
+                                <option value="matchday">⚽ Match Day</option>
+                                <option value="transfer">🔄 Transfer / Registration</option>
+                                <option value="general">📌 General</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label">Headline</label>
+                            <input type="text" id="newsTitle" class="text-field-widget" placeholder="e.g. Round 6 fixtures confirmed">
+                        </div>
+                        <div>
+                            <label class="form-label">Full Message</label>
+                            <textarea id="newsBody" class="text-field-widget" rows="5" placeholder="Write the full news content here..." style="resize:vertical; line-height:1.6;"></textarea>
+                        </div>
+                        <button class="register-action-btn" onclick="publishNewsPost()">📤 Publish Post</button>
+                    </div>
                 </div>
+            </div>
+            <!-- News Feed — full width, 2-col card grid -->
+            <div class="card-wrapper">
+                <h2>News & Updates Feed</h2>
+                <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">League announcements, match day news and more.</p>
+                <div id="newsFeedContainer"><div class="empty-state-notice">No news posts yet.</div></div>
             </div>
         </div>
 
@@ -794,6 +891,26 @@
             </div>
         </div>
     </main>
+
+    <!-- EDIT PLAYER MODAL -->
+    <div class="edit-player-modal" id="editPlayerModal">
+        <div class="edit-player-box">
+            <h3>✏️ Edit Player Details</h3>
+            <input type="hidden" id="editPlayerId">
+            <div>
+                <label class="form-label">Player Name</label>
+                <input type="text" id="editPlayerName" class="text-field-widget" placeholder="Full name">
+            </div>
+            <div>
+                <label class="form-label">Assigned Club</label>
+                <select id="editPlayerTeam" class="select-dropdown-widget"></select>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:4px;">
+                <button class="register-action-btn" style="flex:1;" onclick="savePlayerEdit()">💾 Save Changes</button>
+                <button onclick="closePlayerEditModal()" style="flex:1; background:#1a2535; border:1px solid var(--border-color); color:#94a3b8; padding:10px; border-radius:6px; cursor:pointer; font-size:13px;">Cancel</button>
+            </div>
+        </div>
+    </div>
 
     <!-- AUTH OVERLAY SYSTEM -->
     <div id="portalOverlay" class="modal-overlay">
@@ -831,24 +948,38 @@
 
     <!-- MATCH SCORE RECORDING SYSTEM SHEET -->
     <div id="scoreLoggerModal" class="modal-overlay">
-        <div class="admin-modal" style="width: 560px;">
+        <div class="admin-modal" style="width: 640px; max-height:88vh; overflow-y:auto;">
             <button class="close-modal-btn" onclick="closeScoreModal()">×</button>
             <div class="modal-title" id="scoreModalTitle">Match Report Sheet</div>
-            <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">Configure goals, assists, and own goal statistics for individual players on both rosters.</p>
-            
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">Enter goals scored per player, then link the assister for each goal.</p>
             <div style="display:flex; gap:16px; margin-bottom:16px;" id="modalScoreInputsRow"></div>
-            
-            <!-- Header for inputs row inside spreadsheet popup view -->
-            <div style="display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr 1.1fr; gap: 6px; padding: 0 6px; margin-bottom: 6px; font-size: 11px; font-weight: bold; color: var(--text-muted); text-transform: uppercase;">
-                <span>Player</span>
-                <span style="text-align:center;">Goals</span>
-                <span style="text-align:center;">Assists</span>
-                <span style="text-align:center;">OG</span>
-                <span style="text-align:center;">Goal Type</span>
+            <div id="modalGoalEntrySection"></div>
+            <button class="authorize-btn" id="btnSaveScoreRecord" onclick="saveMatchEventsData()">💾 Save Match Records</button>
+        </div>
+    </div>
+
+    <!-- MATCH DETAIL POPUP MODAL -->
+    <div id="matchDetailModal" class="modal-overlay" onclick="if(event.target===this)closeMatchDetailModal()">
+        <div class="admin-modal" style="width:520px; max-height:85vh; overflow-y:auto; padding:0;">
+            <!-- Header band -->
+            <div id="mdm-header" style="background:linear-gradient(135deg,#0b1a2e,#0d2035); border-radius:12px 12px 0 0; padding:20px 24px 16px; border-bottom:1px solid var(--border-color); position:relative;">
+                <button class="close-modal-btn" onclick="closeMatchDetailModal()">×</button>
+                <div id="mdm-tag" style="font-size:10px;font-weight:800;color:var(--accent-cyan);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;"></div>
+                <!-- Score row -->
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                    <div style="flex:1;text-align:right;">
+                        <div id="mdm-home-name" style="font-size:17px;font-weight:800;color:#fff;"></div>
+                        <div id="mdm-home-mgr" style="font-size:11px;color:var(--text-muted);margin-top:2px;"></div>
+                    </div>
+                    <div id="mdm-scorebox" style="background:#05070a;border:1px solid var(--border-color);border-radius:8px;padding:8px 20px;font-size:26px;font-weight:900;color:#fff;letter-spacing:4px;text-align:center;min-width:110px;"></div>
+                    <div style="flex:1;text-align:left;">
+                        <div id="mdm-away-name" style="font-size:17px;font-weight:800;color:#fff;"></div>
+                        <div id="mdm-away-mgr" style="font-size:11px;color:var(--text-muted);margin-top:2px;"></div>
+                    </div>
+                </div>
             </div>
-            
-            <div id="modalPlayersEventsList" style="max-height: 220px; overflow-y: auto; margin-bottom: 16px;"></div>
-            <button class="authorize-btn" id="btnSaveScoreRecord" onclick="saveMatchEventsData()">Save Match Records</button>
+            <!-- Stats body -->
+            <div id="mdm-body" style="padding:20px 24px 24px;"></div>
         </div>
     </div>
 
@@ -935,10 +1066,45 @@
         db.ref('leagueData').on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                teams = data.teams || [];
-                players = data.players || [];
-                matches = data.matches || [];
-                newsItems = data.newsItems || [];
+                teams = Array.isArray(data.teams) ? data.teams : Object.values(data.teams || {});
+                players = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
+                matches = Array.isArray(data.matches) ? data.matches : Object.values(data.matches || {});
+                newsItems = Array.isArray(data.newsItems) ? data.newsItems : Object.values(data.newsItems || {});
+
+                // ── Migrate all old tags → MATCHDAY N ──
+                try {
+                    var mdTagPattern  = new RegExp('^MATCHDAY\\s+\\d+$', 'i');
+                    var mdNumPattern  = new RegExp('MATCHDAY\\s+(\\d+)', 'i');
+                    var oldNumPattern = new RegExp('(?:GAME|ROUND)\\s+(\\d+)', 'i');
+                    var tagToMd = {};
+                    var mdCounter = 1;
+                    var tagOrder = [];
+                    matches.forEach(function(m) {
+                        if (m.tag && m.tag !== 'GLOBAL STAT OVERRIDE ADJUSTMENT DATA' && !tagToMd.hasOwnProperty(m.tag)) {
+                            tagOrder.push(m.tag);
+                            tagToMd[m.tag] = null;
+                        }
+                    });
+                    tagOrder.forEach(function(tag) {
+                        if (mdTagPattern.test(tag)) {
+                            var mn = tag.match(mdNumPattern);
+                            var n = mn ? parseInt(mn[1]) : mdCounter;
+                            tagToMd[tag] = 'MATCHDAY ' + n;
+                            mdCounter = Math.max(mdCounter, n + 1);
+                        } else if (oldNumPattern.test(tag)) {
+                            var on = tag.match(oldNumPattern);
+                            var n2 = on ? parseInt(on[1]) : mdCounter;
+                            tagToMd[tag] = 'MATCHDAY ' + n2;
+                            mdCounter = Math.max(mdCounter, n2 + 1);
+                        } else {
+                            tagToMd[tag] = 'MATCHDAY ' + mdCounter++;
+                        }
+                    });
+                    matches = matches.map(function(m) {
+                        if (m.tag && tagToMd[m.tag]) return Object.assign({}, m, { tag: tagToMd[m.tag] });
+                        return m;
+                    });
+                } catch(migErr) { console.warn('Tag migration error:', migErr); }
                 updateWeekendDropdownOptions();
                 renderDashboardAll();
             }
@@ -1003,8 +1169,9 @@
             players.forEach(p => { p.goals = 0; p.assists = 0; p.ownGoals = 0; });
 
             matches.forEach(m => {
-                if (m.events) {
-                    m.events.forEach(evt => {
+                let eventsArr = Array.isArray(m.events) ? m.events : Object.values(m.events || {});
+                if (eventsArr.length > 0) {
+                    eventsArr.forEach(evt => {
                         let targetP = players.find(p => p.id === evt.playerId);
                         if (targetP) {
                             if (evt.type === 'goals') targetP.goals += (evt.count || 0);
@@ -1054,18 +1221,128 @@
             }
         }
 
-        function toggleInlinePlPanel(matchId) {
-            // First try direct ID lookup
-            let panel = document.getElementById(`pl-panel-${matchId}`);
+        function toggleGameSection(sectionId) {
+            let body  = document.getElementById(sectionId);
+            let arrow = document.getElementById(sectionId + '-arrow');
+            if (!body) return;
+            let collapsed = body.classList.toggle('collapsed');
+            if (arrow) arrow.textContent = collapsed ? '▼' : '▲';
+        }
+
+        function toggleInlinePlPanelById(safeId, cardEl) {
+            // Primary: find by ID
+            let panel = document.getElementById('pl-panel-' + safeId);
             if (panel) { panel.classList.toggle("active"); return; }
-            // Fallback: find panel inside the clicked fixture card by traversal
-            let card = event.currentTarget || event.target;
+            // Fallback: walk up from clicked element to find the fixture-card, then find panel inside
+            let card = cardEl;
             while (card && !card.classList.contains('fixture-card')) card = card.parentElement;
             if (card) {
                 let fallback = card.querySelector('.pl-style-events-panel');
                 if (fallback) fallback.classList.toggle("active");
             }
         }
+
+        function toggleInlinePlPanel(matchId, evt) {
+            toggleInlinePlPanelById(matchId, evt && (evt.currentTarget || evt.target));
+        }
+
+        function openMatchDetailModal(matchId) {
+            let m = matches.find(x => x.id === matchId);
+            if (!m) return;
+
+            let hTeam = teams.find(t => t.id === m.homeId);
+            let aTeam = teams.find(t => t.id === m.awayId);
+            let hName = hTeam?.name || 'Home';
+            let aName = aTeam?.name || 'Away';
+
+            // Tag label — derive matchday number from position in sorted matches
+            let validMatches = matches.filter(x => x.tag !== "GLOBAL STAT OVERRIDE ADJUSTMENT DATA");
+            validMatches.sort((a, b) => {
+                let na = parseInt((a.tag.match(/\d+/) || [0])[0]);
+                let nb = parseInt((b.tag.match(/\d+/) || [0])[0]);
+                return na - nb || matches.indexOf(a) - matches.indexOf(b);
+            });
+            let mIdx = validMatches.findIndex(x => x.id === matchId);
+            let mdNum = mIdx >= 0 ? Math.floor(mIdx / 3) + 1 : '?';
+
+            document.getElementById('mdm-tag').textContent = `MATCHDAY ${mdNum}`;
+            document.getElementById('mdm-home-name').textContent = hName;
+            document.getElementById('mdm-away-name').textContent = aName;
+            document.getElementById('mdm-home-mgr').textContent = '👔 ' + (hTeam?.manager || 'Unknown');
+            document.getElementById('mdm-away-mgr').textContent = '👔 ' + (aTeam?.manager || 'Unknown');
+
+            if (m.completed) {
+                document.getElementById('mdm-scorebox').textContent = `${m.homeScore} - ${m.awayScore}`;
+                document.getElementById('mdm-scorebox').style.color = '#fff';
+            } else {
+                document.getElementById('mdm-scorebox').textContent = 'VS';
+                document.getElementById('mdm-scorebox').style.color = 'var(--text-muted)';
+                document.getElementById('mdm-scorebox').style.fontSize = '18px';
+            }
+
+            // Build stats body
+            let body = document.getElementById('mdm-body');
+
+            if (!m.completed) {
+                body.innerHTML = `<div class="empty-state-notice" style="padding:30px 0;">⏳ This match has not been played yet.</div>`;
+            } else {
+                let eventsArr = Array.isArray(m.events) ? m.events : Object.values(m.events || {});
+
+                // Build per-team goal entries with assist links
+                let buildTeamGoals = (teamId) => {
+                    let lines = [];
+                    eventsArr.forEach(e => {
+                        let p = players.find(x => x.id === e.playerId);
+                        if (!p || p.teamId !== teamId) return;
+                        if (e.type === 'goals') {
+                            let goalsList = e.goalsList || Array.from({length: e.count||1}, (_,i) => ({
+                                scoringType: e.scoringType || 'regular',
+                                assistedBy: e.assistsList ? e.assistsList[i] : ''
+                            }));
+                            goalsList.forEach((gl, gi) => {
+                                let penMark = gl.scoringType === 'penalty' ? ' <span style="color:var(--accent-yellow);font-size:10px;">(P)</span>' : '';
+                                let assister = gl.assistedBy ? players.find(x => x.id === gl.assistedBy) : null;
+                                let assistLine = assister ? `<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">👟 ${assister.name}</div>` : '';
+                                lines.push(`<div style="margin-bottom:6px;">⚽ <strong>${p.name}</strong>${penMark}${assistLine}</div>`);
+                            });
+                        }
+                        if (e.type === 'ownGoals') {
+                            for (let i = 0; i < (e.count||1); i++) {
+                                lines.push(`<div style="margin-bottom:6px;color:var(--danger-red);">🔴 <strong>${p.name}</strong> <span style="font-size:10px;">(OG)</span></div>`);
+                            }
+                        }
+                    });
+                    return lines;
+                };
+
+                let homeLines = buildTeamGoals(m.homeId);
+                let awayLines = buildTeamGoals(m.awayId);
+                let hasStats  = eventsArr.length > 0;
+
+                body.innerHTML = `
+                    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;padding:0 0 10px;margin-bottom:4px;">
+                        <div style="text-align:right;font-size:11px;font-weight:700;color:var(--accent-cyan);text-transform:uppercase;letter-spacing:1px;">${hName}</div>
+                        <div></div>
+                        <div style="text-align:left;font-size:11px;font-weight:700;color:var(--accent-cyan);text-transform:uppercase;letter-spacing:1px;">${aName}</div>
+                    </div>
+                    ${hasStats ? `
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:13px;">
+                        <div style="text-align:right;">${homeLines.join('') || '<span style="color:var(--text-muted);font-style:italic;">No goals</span>'}</div>
+                        <div style="text-align:left;border-left:1px dashed var(--border-color);padding-left:16px;">${awayLines.join('') || '<span style="color:var(--text-muted);font-style:italic;">No goals</span>'}</div>
+                    </div>` : '<div class="empty-state-notice">No player stats recorded for this match.</div>'}
+                `;
+            }
+
+            document.getElementById('matchDetailModal').classList.add('active');
+        }
+
+        function closeMatchDetailModal() {
+            document.getElementById('matchDetailModal').classList.remove('active');
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeMatchDetailModal();
+        });
 
         function openSquadPopupModal(teamId) {
             let t = teams.find(x => x.id === teamId);
@@ -1123,69 +1400,199 @@
         }
 
         function openScoreModal(matchId) {
-            event.stopPropagation(); 
+            event.stopPropagation();
             activeEditingMatchId = matchId;
             let m = matches.find(x => x.id === matchId);
-            let hName = teams.find(t => t.id === m.homeId)?.name || 'Home Club';
-            let aName = teams.find(t => t.id === m.awayId)?.name || 'Away Club';
-            
+            let hTeam = teams.find(t => t.id === m.homeId);
+            let aTeam = teams.find(t => t.id === m.awayId);
+            let hName = hTeam?.name || 'Home';
+            let aName = aTeam?.name || 'Away';
+
             document.getElementById("scoreModalTitle").innerText = `${hName} vs ${aName}`;
             document.getElementById("modalScoreInputsRow").innerHTML = `
-                <div style="flex:1;"><label class="form-label">${hName} Goals</label><input type="number" id="modalHomeScore" class="text-field-widget" value="${m.homeScore ?? 0}" min="0"></div>
-                <div style="flex:1;"><label class="form-label">${aName} Goals</label><input type="number" id="modalAwayScore" class="text-field-widget" value="${m.awayScore ?? 0}" min="0"></div>
+                <div style="flex:1;"><label class="form-label">${hName} Goals</label>
+                <input type="number" id="modalHomeScore" class="text-field-widget" value="${m.homeScore ?? 0}" min="0" oninput="rebuildGoalEntrySection()"></div>
+                <div style="flex:1;"><label class="form-label">${aName} Goals</label>
+                <input type="number" id="modalAwayScore" class="text-field-widget" value="${m.awayScore ?? 0}" min="0" oninput="rebuildGoalEntrySection()"></div>
             `;
-            
-            let matchRosterPlayers = players.filter(p => p.teamId === m.homeId || p.teamId === m.awayId);
-            let modalPlayersHtml = "";
 
-            matchRosterPlayers.forEach(p => {
-                let pTeam = teams.find(t => t.id === p.teamId)?.name || '';
-                let g = 0, a = 0, og = 0, sType = "regular";
-                if(m.events) {
-                    let gEvt = m.events.find(e => e.playerId === p.id && e.type === 'goals');
-                    g = gEvt?.count || 0;
-                    sType = gEvt?.scoringType || "regular";
-                    a = m.events.find(e => e.playerId === p.id && e.type === 'assists')?.count || 0;
-                    og = m.events.find(e => e.playerId === p.id && e.type === 'ownGoals')?.count || 0;
-                }
-                modalPlayersHtml += `
-                <div class="match-event-row" data-player-id="${p.id}">
-                    <span style="font-weight:600;">${p.name} <small style="color:var(--text-muted); display:block; font-size:10px;">${pTeam}</small></span>
-                    <div><input type="number" class="stat-input-small p-goals" value="${g}" min="0"></div>
-                    <div><input type="number" class="stat-input-small p-assists" value="${a}" min="0"></div>
-                    <div><input type="number" class="stat-input-small p-own-goals" value="${og}" min="0"></div>
-                    <div>
-                        <select class="stat-input-small p-goal-type" style="font-size:11px; padding:3px 2px;">
-                            <option value="regular" ${sType==='regular'?'selected':''}>Goal</option>
-                            <option value="penalty" ${sType==='penalty'?'selected':''}>Penalty</option>
-                        </select>
-                    </div>
-                </div>`;
-            });
+            // Parse existing events to pre-fill
+            let evArr = m.events ? (Array.isArray(m.events) ? m.events : Object.values(m.events)) : [];
+            // Store existing goal-assist links on window for rebuildGoalEntrySection to use
+            window._scoreModalMatchId = matchId;
+            window._scoreModalExistingEvents = evArr;
+            window._scoreModalHomePlayers = players.filter(p => p.teamId === m.homeId);
+            window._scoreModalAwayPlayers = players.filter(p => p.teamId === m.awayId);
+            window._scoreModalAllPlayers  = [...window._scoreModalHomePlayers, ...window._scoreModalAwayPlayers];
 
-            document.getElementById("modalPlayersEventsList").innerHTML = modalPlayersHtml || `<div class="empty-state-notice">No individual player profiles on roster.</div>`;
+            rebuildGoalEntrySection();
             document.getElementById("scoreLoggerModal").classList.add("active");
         }
+
+        function rebuildGoalEntrySection() {
+            let homeScore = parseInt(document.getElementById("modalHomeScore")?.value) || 0;
+            let awayScore = parseInt(document.getElementById("modalAwayScore")?.value) || 0;
+            let m = matches.find(x => x.id === window._scoreModalMatchId);
+            if (!m) return;
+
+            let evArr = window._scoreModalExistingEvents || [];
+            let homePlayers = window._scoreModalHomePlayers || [];
+            let awayPlayers = window._scoreModalAwayPlayers || [];
+            let allPlayers  = window._scoreModalAllPlayers  || [];
+
+            // Rebuild existing goal events into a lookup: { playerId -> [{scoringType, assistedBy}] }
+            // New data model: each goal event has a goalsList array of {scoringType, assistedBy}
+            // For backward compat, we read old flat events and reconstruct
+            let existingGoals = {}; // playerId -> array of {scoringType, assistedBy}
+            let existingOG    = {}; // playerId -> count
+            evArr.forEach(e => {
+                if (e.type === 'goals') {
+                    existingGoals[e.playerId] = e.goalsList || Array.from({length: e.count || 1}, (_, i) => ({
+                        scoringType: e.scoringType || 'regular',
+                        assistedBy: (e.assistsList && e.assistsList[i]) ? e.assistsList[i] : ''
+                    }));
+                }
+                if (e.type === 'ownGoals') existingOG[e.playerId] = e.count || 0;
+            });
+
+            let makePlayerSection = (teamPlayers, teamName, teamSide, totalGoals) => {
+                if (teamPlayers.length === 0 && totalGoals === 0) return '';
+
+                // All players from BOTH sides available as assisters (excluding scorer for that row)
+                let assistOptions = (excludeId) => allPlayers.map(p =>
+                    `<option value="${p.id}" ${''}>👤 ${p.name} (${teams.find(t=>t.id===p.teamId)?.name||''})</option>`
+                ).join('');
+
+                let rows = teamPlayers.map(p => {
+                    let goals = existingGoals[p.id] || [];
+                    let og = existingOG[p.id] || 0;
+
+                    let goalRows = goals.map((gl, gi) => `
+                        <div class="goal-entry-row" data-player-id="${p.id}" data-goal-index="${gi}" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:center;background:#05070a;border:1px solid var(--border-color);border-radius:6px;padding:8px 10px;margin-bottom:6px;">
+                            <div style="font-size:12px;color:#fff;">⚽ <strong>${p.name}</strong> — Goal ${gi+1}</div>
+                            <select class="stat-input-small goal-type-sel" style="font-size:11px;padding:4px;">
+                                <option value="regular" ${gl.scoringType==='regular'?'selected':''}>Open Play</option>
+                                <option value="penalty" ${gl.scoringType==='penalty'?'selected':''}>Penalty</option>
+                            </select>
+                            <select class="stat-input-small assist-sel" style="font-size:11px;padding:4px;">
+                                <option value="">— No Assist —</option>
+                                ${allPlayers.filter(x=>x.id!==p.id).map(x=>`<option value="${x.id}" ${gl.assistedBy===x.id?'selected':''}>${x.name} (${teams.find(t=>t.id===x.teamId)?.name||''})</option>`).join('')}
+                            </select>
+                        </div>`).join('');
+
+                    // Own goals row
+                    let ogRow = `
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:12px;color:var(--text-muted);">
+                            <span style="flex:1;">🔴 ${p.name} — Own Goals</span>
+                            <input type="number" class="stat-input-small og-input" data-player-id="${p.id}" value="${og}" min="0" style="width:60px;text-align:center;">
+                        </div>`;
+
+                    // Goal count input per player
+                    let goalCountRow = `
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;background:#0b1520;border:1px solid var(--border-color);border-radius:6px;padding:8px 10px;">
+                            <span style="flex:1;font-size:13px;font-weight:700;color:#fff;">👤 ${p.name}</span>
+                            <span style="font-size:11px;color:var(--text-muted);">Goals:</span>
+                            <input type="number" class="stat-input-small player-goal-count" data-player-id="${p.id}" data-side="${teamSide}" value="${goals.length}" min="0" style="width:55px;text-align:center;" oninput="onPlayerGoalCountChange(this)">
+                            <span style="font-size:11px;color:var(--text-muted);">OG:</span>
+                            <input type="number" class="stat-input-small og-input" data-player-id="${p.id}" value="${og}" min="0" style="width:55px;text-align:center;">
+                        </div>
+                        ${goalRows}`;
+
+                    return goalCountRow;
+                }).join('');
+
+                return `
+                    <div style="margin-bottom:18px;">
+                        <div style="font-size:11px;font-weight:800;color:var(--accent-cyan);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border-color);">
+                            ${teamName} — ${totalGoals} Goal${totalGoals!==1?'s':''}
+                        </div>
+                        ${rows || '<div style="color:var(--text-muted);font-size:12px;padding:6px 0;">No players registered for this team.</div>'}
+                    </div>`;
+            };
+
+            let homeGoals = parseInt(document.getElementById("modalHomeScore")?.value) || 0;
+            let awayGoals = parseInt(document.getElementById("modalAwayScore")?.value) || 0;
+            let hName = teams.find(t => t.id === m.homeId)?.name || 'Home';
+            let aName = teams.find(t => t.id === m.awayId)?.name || 'Away';
+
+            document.getElementById("modalGoalEntrySection").innerHTML =
+                makePlayerSection(homePlayers, hName, 'home', homeGoals) +
+                makePlayerSection(awayPlayers, aName, 'away', awayGoals);
+        }
+
+        function onPlayerGoalCountChange(input) {
+            let pId = input.getAttribute('data-player-id');
+            let count = parseInt(input.value) || 0;
+
+            // Update existingGoals for this player
+            let existing = (window._scoreModalExistingEvents || []);
+            let evIdx = existing.findIndex(e => e.playerId === pId && e.type === 'goals');
+            let currentGoals = evIdx >= 0 && existing[evIdx].goalsList ? existing[evIdx].goalsList : [];
+
+            // Resize array
+            while (currentGoals.length < count) currentGoals.push({ scoringType: 'regular', assistedBy: '' });
+            currentGoals = currentGoals.slice(0, count);
+
+            if (evIdx >= 0) {
+                existing[evIdx].goalsList = currentGoals;
+                existing[evIdx].count = count;
+            } else if (count > 0) {
+                existing.push({ playerId: pId, type: 'goals', count, scoringType: 'regular', goalsList: currentGoals });
+            }
+            window._scoreModalExistingEvents = existing;
+            rebuildGoalEntrySection();
+        }
+
         function closeScoreModal() { document.getElementById("scoreLoggerModal").classList.remove("active"); activeEditingMatchId = null; }
 
         function saveMatchEventsData() {
-            if(!activeEditingMatchId || !isAdmin) return;
+            if (!activeEditingMatchId || !isAdmin) return;
             let m = matches.find(x => x.id === activeEditingMatchId);
             m.homeScore = parseInt(document.getElementById("modalHomeScore").value) || 0;
             m.awayScore = parseInt(document.getElementById("modalAwayScore").value) || 0;
             m.completed = true;
             m.events = [];
 
-            document.querySelectorAll("#modalPlayersEventsList .match-event-row").forEach(row => {
-                let pId = row.getAttribute("data-player-id");
-                let g = parseInt(row.querySelector(".p-goals").value) || 0;
-                let a = parseInt(row.querySelector(".p-assists").value) || 0;
-                let og = parseInt(row.querySelector(".p-own-goals").value) || 0;
-                let goalType = row.querySelector(".p-goal-type").value;
+            let section = document.getElementById("modalGoalEntrySection");
 
-                if(g > 0) m.events.push({ playerId: pId, type: 'goals', count: g, scoringType: goalType });
-                if(a > 0) m.events.push({ playerId: pId, type: 'assists', count: a });
-                if(og > 0) m.events.push({ playerId: pId, type: 'ownGoals', count: og });
+            // Collect per-player goal rows
+            let playerGoalMap = {}; // playerId -> [ {scoringType, assistedBy} ]
+            section.querySelectorAll('.goal-entry-row').forEach(row => {
+                let pId = row.getAttribute('data-player-id');
+                if (!playerGoalMap[pId]) playerGoalMap[pId] = [];
+                playerGoalMap[pId].push({
+                    scoringType: row.querySelector('.goal-type-sel').value,
+                    assistedBy:  row.querySelector('.assist-sel').value
+                });
+            });
+
+            // Build events from goal map
+            Object.entries(playerGoalMap).forEach(([pId, goals]) => {
+                if (goals.length === 0) return;
+                // Push goal event with full goalsList
+                m.events.push({
+                    playerId: pId,
+                    type: 'goals',
+                    count: goals.length,
+                    scoringType: goals[0].scoringType, // backward compat
+                    goalsList: goals,
+                    assistsList: goals.map(g => g.assistedBy)
+                });
+                // Push individual assist events per goal
+                goals.forEach(g => {
+                    if (g.assistedBy) {
+                        let existing = m.events.find(e => e.playerId === g.assistedBy && e.type === 'assists');
+                        if (existing) existing.count++;
+                        else m.events.push({ playerId: g.assistedBy, type: 'assists', count: 1 });
+                    }
+                });
+            });
+
+            // Collect own goals
+            section.querySelectorAll('.og-input').forEach(inp => {
+                let pId = inp.getAttribute('data-player-id');
+                let og = parseInt(inp.value) || 0;
+                if (og > 0) m.events.push({ playerId: pId, type: 'ownGoals', count: og });
             });
 
             persistDatabaseState();
@@ -1215,6 +1622,33 @@
             nameInput.value = "";
             persistDatabaseState();
         }
+
+        function openPlayerEditModal(playerId) {
+            let p = players.find(x => x.id === playerId);
+            if (!p) return;
+            document.getElementById("editPlayerId").value = p.id;
+            document.getElementById("editPlayerName").value = p.name;
+            let teamSel = document.getElementById("editPlayerTeam");
+            teamSel.innerHTML = teams.map(t => '<option value="' + t.id + '"' + (t.id === p.teamId ? ' selected' : '') + '>' + t.name + '</option>').join('');
+            document.getElementById("editPlayerModal").classList.add("active");
+        }
+
+        function closePlayerEditModal() {
+            document.getElementById("editPlayerModal").classList.remove("active");
+        }
+
+        function savePlayerEdit() {
+            let id     = document.getElementById("editPlayerId").value;
+            let name   = document.getElementById("editPlayerName").value.trim();
+            let teamId = document.getElementById("editPlayerTeam").value;
+            if (!name) return alert("Player name cannot be empty.");
+            let p = players.find(x => x.id === id);
+            if (!p) return;
+            p.name   = name;
+            p.teamId = teamId;
+            closePlayerEditModal();
+            persistDatabaseState();
+        }
         function unregisterPlayer(id) { if(confirm("Unregister player profile?")) { players = players.filter(p => p.id !== id); persistDatabaseState(); } }
         
         function changePlayerStat(pId, type, amt) {
@@ -1223,6 +1657,8 @@
                 adjustMatch = { id: "m-adj-" + Date.now(), tag: "GLOBAL STAT OVERRIDE ADJUSTMENT DATA", homeId: "t1", awayId: "t2", homeScore: null, awayScore: null, completed: false, events: [] };
                 matches.push(adjustMatch);
             }
+            let evAdj = Array.isArray(adjustMatch.events) ? adjustMatch.events : Object.values(adjustMatch.events || {});
+            adjustMatch.events = evAdj;
             let ev = adjustMatch.events.find(e => e.playerId === pId && e.type === type);
             if (ev) { 
                 ev.count += amt; 
@@ -1234,23 +1670,139 @@
         }
 
         function autoGenerateFixtures() {
-            if (teams.length < 2) return alert("Add more clubs first.");
-            if (!confirm("Wipe scheduled unplayed items and generate round robin?")) return;
-            matches = matches.filter(m => m.completed);
-            let pool = [...teams];
-            if (pool.length % 2 !== 0) pool.push({ id: "dummy-bye", name: "BYE" });
-            
-            for (let r = 0; r < pool.length - 1; r++) {
-                for (let i = 0; i < pool.length / 2; i++) {
-                    let h = pool[i], a = pool[pool.length - 1 - i];
-                    if (h.id !== "dummy-bye" && a.id !== "dummy-bye") {
-                        let dayTag = (r % 2 === 0) ? "FRIDAY" : "SATURDAY";
-                        matches.push({ id: `m-auto-${r}-${i}-${Date.now()}`, tag: `ROUND ${r + 1} • ${dayTag}`, homeId: h.id, awayId: a.id, homeScore: null, awayScore: null, completed: false, events: [] });
+            if (teams.length < 2) return alert("Add at least 2 clubs first.");
+            if (!confirm("Generate upcoming fixtures? Completed matches are kept. Only unplayed fixtures will be replaced.")) return;
+
+            // Keep completed matches + the stat override record
+            matches = matches.filter(m => m.completed || m.tag === "GLOBAL STAT OVERRIDE ADJUSTMENT DATA");
+
+            let allTeams = teams.filter(t => t.id !== 'dummy-bye');
+            let n = allTeams.length;
+
+            // ── Berger circle round-robin ──
+            // Generates every team playing every other team exactly once per leg
+            let pool = [...allTeams];
+            if (pool.length % 2 !== 0) pool.push({ id: 'dummy-bye', name: 'BYE' });
+            let sz = pool.length;
+            let totalRounds = sz - 1;
+            let fixed = pool[0];
+            let rotating = pool.slice(1);
+
+            // Generate all rounds for first leg
+            let leg1 = [];
+            for (let r = 0; r < totalRounds; r++) {
+                let round = [];
+                let opp = rotating[(totalRounds - 1 - r) % rotating.length];
+                // fixed vs opp
+                if (fixed.id !== 'dummy-bye' && opp.id !== 'dummy-bye') {
+                    round.push({ h: fixed, a: opp });
+                }
+                // pair remaining
+                for (let i = 1; i <= Math.floor((sz - 2) / 2); i++) {
+                    let t1 = rotating[(totalRounds - r + i - 1) % rotating.length];
+                    let t2 = rotating[(totalRounds - r - i) % rotating.length];
+                    if (t1 && t2 && t1.id !== 'dummy-bye' && t2.id !== 'dummy-bye') {
+                        round.push({ h: t1, a: t2 });
                     }
                 }
-                pool.splice(1, 0, pool.pop());
+                leg1.push(round);
             }
+
+            // Second leg = swap home/away
+            let leg2 = leg1.map(round => round.map(p => ({ h: p.a, a: p.h })));
+
+            // Full schedule = leg1 + leg2
+            let allRounds = [...leg1, ...leg2];
+
+            // ── Determine which rounds are already fully played ──
+            // Build set of played pairs (sorted) → set of round-robin round indices played
+            let playedPairs = new Set();
+            matches.filter(m => m.completed).forEach(m => {
+                playedPairs.add([m.homeId, m.awayId].sort().join('|'));
+            });
+
+            // Find first leg round index for each played pair
+            let leg1PlayedSet = new Set();
+            leg1.forEach((round, rIdx) => {
+                let allInRoundPlayed = round.every(p => playedPairs.has([p.h.id, p.a.id].sort().join('|')));
+                if (allInRoundPlayed) leg1PlayedSet.add(rIdx);
+            });
+            let leg2PlayedSet = new Set();
+            leg2.forEach((round, rIdx) => {
+                let allInRoundPlayed = round.every(p => playedPairs.has([p.h.id, p.a.id].sort().join('|')));
+                if (allInRoundPlayed) leg2PlayedSet.add(rIdx);
+            });
+
+            // Build remaining rounds in order
+            let remainingRounds = [];
+            leg1.forEach((round, rIdx) => { if (!leg1PlayedSet.has(rIdx)) remainingRounds.push(round); });
+            leg2.forEach((round, rIdx) => { if (!leg2PlayedSet.has(rIdx)) remainingRounds.push(round); });
+
+            if (remainingRounds.length === 0) {
+                return alert("All fixtures for both legs have been completed! The full season is done.");
+            }
+
+            // ── Enforce rest: a team that played first (home) last matchday cannot play home first next matchday ──
+            // Track which team played home position in each completed matchday
+            let validCompleted = matches.filter(m => m.completed && m.tag !== "GLOBAL STAT OVERRIDE ADJUSTMENT DATA");
+            validCompleted.sort((a, b) => {
+                let na = parseInt((a.tag.match(/\d+/) || [0])[0]);
+                let nb = parseInt((b.tag.match(/\d+/) || [0])[0]);
+                return na - nb;
+            });
+            // Group into matchdays of 3 to find last matchday's first-home team
+            let lastMatchdayHomeIds = new Set();
+            if (validCompleted.length > 0) {
+                let lastGroup = [];
+                let lastTagNum = parseInt((validCompleted[validCompleted.length-1].tag.match(/\d+/)||[0])[0]);
+                validCompleted.forEach(m => {
+                    let n = parseInt((m.tag.match(/\d+/)||[0])[0]);
+                    if (n === lastTagNum) lastGroup.push(m);
+                });
+                // First match in group = the one that played first slot
+                if (lastGroup.length > 0) lastMatchdayHomeIds.add(lastGroup[0].homeId);
+            }
+
+            // For each remaining round, rotate fixture order so the team that rested goes first
+            remainingRounds = remainingRounds.map(round => {
+                // Sort: push any match where homeId was in last matchday's first slot to end
+                return [...round].sort((a, b) => {
+                    let aRested = lastMatchdayHomeIds.has(a.h.id) ? 1 : 0;
+                    let bRested = lastMatchdayHomeIds.has(b.h.id) ? 1 : 0;
+                    return aRested - bRested;
+                });
+            });
+
+            // ── Determine next matchday number ──
+            let usedNums = validCompleted.map(m => {
+                let gm = m.tag.match(/\d+/);
+                return gm ? parseInt(gm[0]) : 0;
+            }).filter(n => n > 0);
+            // We now regroup into matchdays of 3 to get how many sequential matchdays exist
+            let totalPlayedMatchdays = Math.ceil(validCompleted.length / 3);
+            let nextMdNum = totalPlayedMatchdays + 1;
+
+            // ── Push new fixtures ──
+            remainingRounds.forEach((round, i) => {
+                let mdNum = nextMdNum + i;
+                let tag = `MATCHDAY ${mdNum}`;
+                round.forEach((p, j) => {
+                    matches.push({
+                        id: `m-auto-${mdNum}-${j}-${Date.now() + j}`,
+                        tag,
+                        homeId: p.h.id,
+                        awayId: p.a.id,
+                        homeScore: null,
+                        awayScore: null,
+                        completed: false,
+                        events: []
+                    });
+                });
+            });
+
             persistDatabaseState();
+            renderDashboardAll();
+            alert(`✅ Generated ${remainingRounds.length} matchday(s) — Matchday ${nextMdNum} to Matchday ${nextMdNum + remainingRounds.length - 1}. Each team plays every other team once per leg with rest enforced.`);
         }
 
         function toggleManualMatchModal(open) {
@@ -1304,7 +1856,7 @@
         function updateWeekendDropdownOptions() {
             let selector = document.getElementById("weekendFilterSelect");
             if(!selector) return;
-            let val = selector.value; selector.innerHTML = `<option value="ALL_ROUNDS">All Scheduled Tournament Rounds</option>`;
+            let val = selector.value; selector.innerHTML = `<option value="ALL_ROUNDS">All Matchdays</option>`;
             [...new Set(matches.map(m => m.tag))].forEach(t => { if(t !== "GLOBAL STAT OVERRIDE ADJUSTMENT DATA") selector.add(new Option(t, t)); });
             if([...selector.options].some(o => o.value === val)) selector.value = val;
         }
@@ -1428,6 +1980,8 @@
             renderNewsTicker();
         }
 
+        let _lastSeenNewsCount = 0; try { _lastSeenNewsCount = parseInt(localStorage.getItem('slNewsCount') || '0'); } catch(e) {}
+
         function renderNewsPage() {
             let container = document.getElementById("newsFeedContainer");
             if (!container) return;
@@ -1437,18 +1991,38 @@
                 container.innerHTML = '<div class="empty-state-notice">No news posts yet.</div>';
                 return;
             }
-            container.innerHTML = newsItems.map(n => {
+            let cardsHtml = newsItems.map(n => {
                 let meta = newsCategoryMeta[n.category] || newsCategoryMeta.general;
-                return `<div class="news-card">
-                    <span class="news-category-badge ${meta.cls}">${meta.label}</span>
-                    <div class="news-card-title">${n.title}</div>
-                    <div class="news-card-body">${n.body.replace(/\n/g, '<br>')}</div>
-                    <div class="news-card-meta">
-                        <span>🗓️ ${n.date}</span>
-                        ${isAdmin ? `<button class="news-delete-btn" onclick="deleteNewsPost('${n.id}')">🗑 Delete</button>` : ''}
-                    </div>
-                </div>`;
+                return '<div class="news-card">' +
+                    '<span class="news-category-badge ' + meta.cls + '">' + meta.label + '</span>' +
+                    '<div class="news-card-title">' + n.title + '</div>' +
+                    '<div class="news-card-body">' + n.body.replace(/\n/g, '<br>') + '</div>' +
+                    '<div class="news-card-meta">' +
+                        '<span>🗓️ ' + n.date + '</span>' +
+                        (isAdmin ? '<button class="news-delete-btn" onclick="deleteNewsPost(\'' + n.id + '\')">🗑 Delete</button>' : '') +
+                    '</div>' +
+                '</div>';
             }).join('');
+            // 2-col grid for cards
+            container.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">' + cardsHtml + '</div>';
+        }
+
+        function updateNewsBell() {
+            let badge = document.getElementById("newsBellBadge");
+            if (!badge) return;
+            let unread = Math.max(0, newsItems.length - _lastSeenNewsCount);
+            if (unread > 0) {
+                badge.style.display = 'inline-block';
+                badge.innerText = unread > 9 ? '9+' : unread;
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        function clearNewsBadge() {
+            _lastSeenNewsCount = newsItems.length;
+            try { localStorage.setItem('slNewsCount', newsItems.length); } catch(e){}
+            updateNewsBell();
         }
 
         function renderNewsTicker() {
@@ -1459,6 +2033,7 @@
             let latest = newsItems[0];
             tickerText.innerText = latest.title + ' — ' + latest.body.substring(0, 80) + (latest.body.length > 80 ? '...' : '');
             ticker.style.display = 'flex';
+            updateNewsBell();
         }
         // ---- END NEWS FUNCTIONS ----
 
@@ -1498,8 +2073,12 @@
             if(activeAppPageId === 'table') document.getElementById("fullStandingsBody").innerHTML = makeTableRows() || `<tr><td colspan="11" class="empty-state-notice">No club profiles logged.</td></tr>`;
 
             let generateFixtureRowCard = (m) => {
-                let hName = teams.find(t => t.id === m.homeId)?.name || 'Club';
-                let aName = teams.find(t => t.id === m.awayId)?.name || 'Club';
+                let hTeam = teams.find(t => t.id === m.homeId);
+                let aTeam = teams.find(t => t.id === m.awayId);
+                let hName = hTeam?.name || 'Club';
+                let aName = aTeam?.name || 'Club';
+                let hManager = hTeam?.manager || 'Unknown';
+                let aManager = aTeam?.manager || 'Unknown';
                 let center = m.completed ? `<div class="score-row-display">${m.homeScore} - ${m.awayScore}</div>` : `<div class="vs-badge-widget">VS</div>`;
                 let badge = m.completed ? `<span class="status-badge">COMPLETED</span>` : `<span class="status-badge unplayed">UNPLAYED</span>`;
 
@@ -1509,7 +2088,8 @@
                 let awayAssists = [];
 
                 if (m.completed && m.events) {
-                    m.events.forEach(e => {
+                    let eventsArr = Array.isArray(m.events) ? m.events : Object.values(m.events);
+                    eventsArr.forEach(e => {
                         let p = players.find(x => x.id === e.playerId);
                         if (!p) return;
                         
@@ -1536,24 +2116,13 @@
                 if(awayScorers.length > 0) awayLayoutHtml += `<div class="pl-event-line">⚽ ${awayScorers.join(', ')}</div>`;
                 if(awayAssists.length > 0) awayLayoutHtml += `<div class="pl-event-line pl-event-subtext">👟 Assists: ${awayAssists.join(', ')}</div>`;
 
-                let safeId = m.id.replace(/[^a-zA-Z0-9_-]/g, '_');
-                let plAccordionPanelHtml = `
-                    <div class="pl-style-events-panel" id="pl-panel-${safeId}">
-                        <div class="pl-columns-grid">
-                            <div class="pl-team-events-col home-side">${homeLayoutHtml || '<span style="color:var(--text-muted); font-style:italic;">-</span>'}</div>
-                            <div class="pl-team-events-col away-side">${awayLayoutHtml || '<span style="color:var(--text-muted); font-style:italic;">-</span>'}</div>
-                        </div>
-                    </div>
-                `;
-
-                let adminActionButton = isAdmin ? `<button class="enter-score-btn ${m.completed?'edit-mode':''}" onclick="openScoreModal('${m.id}')">${m.completed?'⚙️ Admin Edit Scores':'✍️ Input Scoreline Stats'}</button>` : '';
+                let adminActionButton = isAdmin ? `<button class="enter-score-btn ${m.completed?'edit-mode':''}" onclick="event.stopPropagation();openScoreModal('${m.id}')">${m.completed?'⚙️ Admin Edit Scores':'✍️ Input Scoreline Stats'}</button>` : '';
 
                 return `
                 <div class="fixture-wrapper-row">
                     <div class="fixture-inner-container">
-                        <div class="fixture-card" onclick="toggleInlinePlPanel('${safeId}')">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                                <span class="fixture-header-meta" style="margin-bottom:0;">${m.tag}</span>
+                        <div class="fixture-card" onclick="openMatchDetailModal('${m.id}')">
+                            <div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:10px;">
                                 ${badge}
                             </div>
                             <div class="match-main-flex">
@@ -1561,7 +2130,10 @@
                                 ${center}
                                 <span class="match-team-section away-align">${aName}</span>
                             </div>
-                            ${plAccordionPanelHtml}
+                            <div style="display:flex;justify-content:space-between;padding:0 4px;margin-top:4px;margin-bottom:2px;">
+                                <span style="font-size:10px;color:var(--text-muted);">👔 ${hManager}</span>
+                                <span style="font-size:10px;color:var(--text-muted);">👔 ${aManager}</span>
+                            </div>
                         </div>
                         ${isAdmin ? `<div class="delete-fixture-btn" onclick="deleteFixtureRecord('${m.id}')">🗑️</div>` : ''}
                     </div>
@@ -1585,17 +2157,63 @@
                 let q = document.getElementById("matchSearch").value.toLowerCase().trim();
                 let rSelect = document.getElementById("weekendFilterSelect")?.value || "ALL_ROUNDS";
 
-                let matchCenterHtml = matches.filter(m => {
-                    if (m.tag === "GLOBAL STAT OVERRIDE ADJUSTMENT DATA") return false;
-                    let h = teams.find(t => t.id === m.homeId)?.name.toLowerCase() || '';
-                    let a = teams.find(t => t.id === m.awayId)?.name.toLowerCase() || '';
-                    
-                    return (h.includes(q) || a.includes(q)) && 
-                           (rSelect === "ALL_ROUNDS" || m.tag === rSelect) &&
-                           (matchFilterState === 'all' || (matchFilterState === 'played' ? m.completed : !m.completed));
-                }).map(generateFixtureRowCard).join('');
+                // ── Build all valid matches sorted chronologically by their original tag number ──
+                let allValidMatches = matches.filter(m => m.tag !== "GLOBAL STAT OVERRIDE ADJUSTMENT DATA");
+                allValidMatches.sort((a, b) => {
+                    let na = parseInt((a.tag.match(/\d+/) || [0])[0]);
+                    let nb = parseInt((b.tag.match(/\d+/) || [0])[0]);
+                    return na - nb || matches.indexOf(a) - matches.indexOf(b);
+                });
 
-                document.getElementById("fixturesContainer").innerHTML = matchCenterHtml || `<div class="empty-state-notice">No matching fixtures found.</div>`;
+                // ── Group into sequential matchdays of 3 ──
+                let matchdayGroups = [];
+                for (let i = 0; i < allValidMatches.length; i += 3) {
+                    matchdayGroups.push(allValidMatches.slice(i, i + 3));
+                }
+
+                // ── Apply search/filter to decide which matchdays to show ──
+                let filteredGroups = matchdayGroups.map((group, idx) => {
+                    let mdLabel = 'MATCHDAY ' + (idx + 1);
+                    // Filter matches within this group by search query, round select, and played state
+                    let filteredGroup = group.filter(m => {
+                        if (rSelect !== "ALL_ROUNDS" && m.tag !== rSelect) return false;
+                        let h = teams.find(t => t.id === m.homeId)?.name.toLowerCase() || '';
+                        let a = teams.find(t => t.id === m.awayId)?.name.toLowerCase() || '';
+                        if (!(h.includes(q) || a.includes(q))) return false;
+                        if (matchFilterState === 'played' && !m.completed) return false;
+                        if (matchFilterState === 'upcoming' && m.completed) return false;
+                        return true;
+                    });
+                    return { mdLabel, group: filteredGroup, mdIndex: idx };
+                }).filter(x => x.group.length > 0);
+
+                if (filteredGroups.length === 0) {
+                    document.getElementById("fixturesContainer").innerHTML = '<div class="empty-state-notice">No matching fixtures found.</div>';
+                } else {
+                    let sectionsHtml = filteredGroups.map(({ mdLabel, group }) => {
+                        let played = group.filter(m => m.completed).length;
+                        let total  = group.length;
+                        let allDone = played === total;
+                        let statusLabel = allDone ? '✅ Completed' : played > 0 ? played + '/' + total + ' Played' : '🕐 Upcoming';
+                        let statusColor = allDone ? 'var(--accent-green)' : played > 0 ? 'var(--accent-yellow)' : 'var(--text-muted)';
+                        let sectionId = 'gs-' + mdLabel.replace(/\s+/g, '-');
+                        let matchCards = group.map(generateFixtureRowCard).join('');
+                        return '<div class="game-section">' +
+                            '<div class="game-section-header" onclick="toggleGameSection(\'' + sectionId + '\')">' +
+                                '<span class="game-section-title">📅 ' + mdLabel + '</span>' +
+                                '<div class="game-section-meta">' +
+                                    '<span style="color:' + statusColor + ';">' + statusLabel + '</span>' +
+                                    '<span>' + total + ' Match' + (total !== 1 ? 'es' : '') + '</span>' +
+                                    '<span class="game-section-toggle" id="' + sectionId + '-arrow">▲</span>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="game-section-body" id="' + sectionId + '">' +
+                                matchCards +
+                            '</div>' +
+                        '</div>';
+                    }).join('');
+                    document.getElementById("fixturesContainer").innerHTML = sectionsHtml;
+                }
             }
 
             if (activeAppPageId === 'squads') {
@@ -1617,7 +2235,13 @@
                             <div class="item-action-links"><span class="action-link rename" onclick="renameTeam('${t.id}')">Modify</span><span class="action-link delete" onclick="deleteTeam('${t.id}')">Delete</span></div>
                         </li>`).join('') : players.map(p => `
                         <li class="management-item" style="flex-direction:column; align-items:stretch; gap:4px;">
-                            <div style="display:flex; justify-content:space-between;"><strong>👤 ${p.name} <small style="color:var(--text-muted);">(${teams.find(t=>t.id===p.teamId)?.name || 'FA'})</small></strong><span class="action-link delete" onclick="unregisterPlayer('${p.id}')">Remove</span></div>
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <strong>👤 ${p.name} <small style="color:var(--text-muted);">(${teams.find(t=>t.id===p.teamId)?.name || 'FA'})</small></strong>
+                                <div style="display:flex; gap:6px;">
+                                    <span class="action-link rename" onclick="openPlayerEditModal('${p.id}')" style="color:var(--accent-cyan);">✏️ Edit</span>
+                                    <span class="action-link delete" onclick="unregisterPlayer('${p.id}')">Remove</span>
+                                </div>
+                            </div>
                             <div style="display:flex; gap:8px;">
                                 <div class="modifier-controls"><span class="stat-badge-info">G: ${p.goals}</span><button class="modifier-btn" onclick="changePlayerStat('${p.id}','goals',1)">+</button><button class="modifier-btn" onclick="changePlayerStat('${p.id}','goals',-1)">-</button></div>
                                 <div class="modifier-controls"><span class="stat-badge-info">A: ${p.assists}</span><button class="modifier-btn" onclick="changePlayerStat('${p.id}','assists',1)">+</button><button class="modifier-btn" onclick="changePlayerStat('${p.id}','assists',-1)">-</button></div>
