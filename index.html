@@ -291,6 +291,57 @@
         .col-center { text-align: center; }
         .col-green { color: var(--accent-green); font-weight: 700; }
 
+        /* FORM BADGE TOOLTIP */
+        .form-pill-badge {
+            position: relative;
+        }
+        .form-pill-badge .form-tooltip {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #0d1f2d;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            white-space: nowrap;
+            z-index: 999;
+            pointer-events: none;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            min-width: 160px;
+            text-align: center;
+        }
+        .form-pill-badge:hover .form-tooltip {
+            display: block;
+        }
+        .form-tooltip .tt-score {
+            font-size: 16px;
+            font-weight: 900;
+            color: #fff;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .form-tooltip .tt-vs {
+            font-size: 11px;
+            color: var(--text-muted);
+            display: block;
+            line-height: 1.4;
+        }
+        .form-tooltip .tt-result-w { color: #10b981; font-weight: 800; font-size: 11px; }
+        .form-tooltip .tt-result-d { color: #9ca3af; font-weight: 800; font-size: 11px; }
+        .form-tooltip .tt-result-l { color: #ef4444; font-weight: 800; font-size: 11px; }
+        /* Arrow pointer */
+        .form-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: var(--border-color);
+        }
+
         /* FORM MICRO-BADGES */
         .form-trend-flex-container { display: flex; justify-content: center; gap: 4px; }
         .form-pill-badge {
@@ -1155,13 +1206,17 @@
         function getTeamRecentForm(teamId) {
             let teamMatches = matches.filter(m => m.completed && (m.homeId === teamId || m.awayId === teamId));
             let recentGames = teamMatches.slice(-3);
-            let formArray = [];
-            recentGames.forEach(m => {
-                if (m.homeScore === m.awayScore) formArray.push('D');
-                else if (m.homeId === teamId) formArray.push(m.homeScore > m.awayScore ? 'W' : 'L');
-                else formArray.push(m.awayScore > m.homeScore ? 'W' : 'L');
+            return recentGames.map(m => {
+                let isHome = m.homeId === teamId;
+                let opponentId = isHome ? m.awayId : m.homeId;
+                let opponent = teams.find(t => t.id === opponentId);
+                let opponentName = opponent ? opponent.name : 'Unknown';
+                let hs = m.homeScore, as = m.awayScore;
+                let result = hs === as ? 'D' : (isHome ? (hs > as ? 'W' : 'L') : (as > hs ? 'W' : 'L'));
+                let scoreDisplay = isHome ? `${hs} - ${as}` : `${as} - ${hs}`;
+                let venue = isHome ? 'vs' : 'vs';
+                return { result, opponentName, scoreDisplay, venue };
             });
-            return formArray;
         }
 
         function calculateStandings() {
@@ -2064,7 +2119,16 @@
                 }
                 historicalPositionsCache[t.id] = pos;
 
-                let formBadges = getTeamRecentForm(t.id).map(out => `<span class="form-pill-badge ${out === 'W' ? 'win' : (out === 'D' ? 'draw' : 'loss')}">${out}</span>`).join('');
+                let formBadges = getTeamRecentForm(t.id).map(({ result, opponentName, scoreDisplay }) => {
+                    let cls = result === 'W' ? 'win' : (result === 'D' ? 'draw' : 'loss');
+                    let resCls = result === 'W' ? 'tt-result-w' : (result === 'D' ? 'tt-result-d' : 'tt-result-l');
+                    let resLabel = result === 'W' ? 'WIN' : (result === 'D' ? 'DRAW' : 'LOSS');
+                    return `<span class="form-pill-badge ${cls}">${result}<div class="form-tooltip">
+                        <span class="tt-score">${scoreDisplay}</span>
+                        <span class="tt-vs">vs ${opponentName}</span>
+                        <span class="${resCls}">${resLabel}</span>
+                    </div></span>`;
+                }).join('');
                 if(!formBadges) formBadges = '<span style="color:var(--text-muted); font-size:11px;">-</span>';
 
                 return `<tr class="${cls}">
