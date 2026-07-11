@@ -157,6 +157,22 @@
             margin-bottom: 24px;
         }
 
+        /* ADMIN PLAYER SEARCH */
+        .admin-player-search {
+            width: 100%; padding: 9px 12px 9px 34px;
+            background: #05070a; border: 1px solid var(--border-color);
+            border-radius: 8px; color: #fff; font-size: 13px; outline: none;
+            box-sizing: border-box; margin-bottom: 10px;
+        }
+        .admin-player-search:focus { border-color: var(--accent-cyan); }
+        .admin-player-search-wrap {
+            position: relative; margin-bottom: 4px;
+        }
+        .admin-player-search-wrap::before {
+            content: '🔍'; position: absolute; left: 10px; top: 50%;
+            transform: translateY(-50%); font-size: 13px; pointer-events: none;
+        }
+
         .welcome-admin-banner {
             display: none;
             background: linear-gradient(90deg, #f97316, #eab308);
@@ -705,9 +721,6 @@
 
     <!-- CONTENT MODULE VIEWPORT -->
     <main class="main-content">
-        <div class="welcome-admin-banner" id="adminWelcomeBanner">
-            👋 Welcome Guidance!! Premium League Write Capabilities Activated.
-        </div>
 
         <header>
             <div>
@@ -937,6 +950,13 @@
                 <div id="adminPanelInputColumn"></div>
                 <div class="card-wrapper" style="background-color:#05070a; margin-bottom:0;">
                     <label class="form-label" id="managementListTitleLabel">Registered Directory Logs</label>
+                    <div id="adminPlayerSearchWrap" style="display:none; margin-top:8px;">
+                        <div class="admin-player-search-wrap">
+                            <input type="text" class="admin-player-search" id="adminPlayerSearchInput"
+                                placeholder="Search player or club..."
+                                oninput="filterAdminPlayerList()">
+                        </div>
+                    </div>
                     <ul class="management-list" id="adminPanelListingItems"></ul>
                 </div>
             </div>
@@ -1172,7 +1192,6 @@
                 document.getElementById("adminToggle").classList.remove("logged-in");
                 document.getElementById("adminControlPanel").classList.remove("visible");
                 document.getElementById("matchCenterAdminActions").style.display = "none";
-                document.getElementById("adminWelcomeBanner").style.display = "none";
                 renderDashboardAll();
             } else {
                 document.getElementById("portalPassword").value = "";
@@ -1191,7 +1210,6 @@
                 closeAdminModal();
                 document.getElementById("adminControlPanel").classList.add("visible");
                 document.getElementById("matchCenterAdminActions").style.display = "flex";
-                document.getElementById("adminWelcomeBanner").style.display = "block";
                 switchAdminSubTab(activeAdminSubTab);
                 if (activeAppPageId === 'news') {
                     let panel = document.getElementById("newsAdminPostPanel");
@@ -1901,6 +1919,9 @@
             if (activeAdminSubTab === 'teams') {
                 document.getElementById("subTabTeams").classList.add("active");
                 document.getElementById("managementListTitleLabel").innerText = "Registered Clubs Directory";
+                // Hide search on teams tab
+                let sw = document.getElementById('adminPlayerSearchWrap');
+                if (sw) { sw.style.display = 'none'; }
                 inputCol.innerHTML = `
                     <div class="card-wrapper" style="background-color:#05070a; display:flex; flex-direction:column; gap:10px;">
                         <div><label class="form-label">Football Club Name</label><input type="text" id="newTeamInput" class="text-field-widget"></div>
@@ -1910,6 +1931,9 @@
             } else {
                 document.getElementById("subTabPlayers").classList.add("active");
                 document.getElementById("managementListTitleLabel").innerText = "Registered Players Log Directory";
+                // Show search on players tab
+                let sw = document.getElementById('adminPlayerSearchWrap');
+                if (sw) { sw.style.display = 'block'; }
                 let options = teams.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
                 inputCol.innerHTML = `
                     <div class="card-wrapper" style="background-color:#05070a; display:flex; flex-direction:column; gap:10px;">
@@ -2104,6 +2128,35 @@
             updateNewsBell();
         }
         // ---- END NEWS FUNCTIONS ----
+
+        function filterAdminPlayerList() {
+            let query = (document.getElementById('adminPlayerSearchInput')?.value || '').toLowerCase().trim();
+            let listEl = document.getElementById('adminPanelListingItems');
+            if (!listEl) return;
+            let filtered = query
+                ? players.filter(p => {
+                    let teamName = (teams.find(t => t.id === p.teamId)?.name || '').toLowerCase();
+                    return p.name.toLowerCase().includes(query) || teamName.includes(query);
+                })
+                : players;
+            listEl.innerHTML = filtered.length === 0
+                ? `<li style="padding:12px; color:var(--text-muted); font-size:13px;">No players match "${query}"</li>`
+                : filtered.map(p => `
+                    <li class="management-item" style="flex-direction:column; align-items:stretch; gap:4px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <strong>👤 ${p.name} <small style="color:var(--text-muted);">(${teams.find(t=>t.id===p.teamId)?.name || 'FA'})</small></strong>
+                            <div style="display:flex; gap:6px;">
+                                <span class="action-link rename" onclick="openPlayerEditModal('${p.id}')" style="color:var(--accent-cyan);">✏️ Edit</span>
+                                <span class="action-link delete" onclick="unregisterPlayer('${p.id}')">Remove</span>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <div class="modifier-controls"><span class="stat-badge-info">G: ${p.goals}</span><button class="modifier-btn" onclick="changePlayerStat('${p.id}','goals',1)">+</button><button class="modifier-btn" onclick="changePlayerStat('${p.id}','goals',-1)">-</button></div>
+                            <div class="modifier-controls"><span class="stat-badge-info">A: ${p.assists}</span><button class="modifier-btn" onclick="changePlayerStat('${p.id}','assists',1)">+</button><button class="modifier-btn" onclick="changePlayerStat('${p.id}','assists',-1)">-</button></div>
+                            <div class="modifier-controls"><span class="stat-badge-info">OG: ${p.ownGoals}</span><button class="modifier-btn" onclick="changePlayerStat('${p.id}','ownGoals',1)">+</button><button class="modifier-btn" onclick="changePlayerStat('${p.id}','ownGoals',-1)">-</button></div>
+                        </div>
+                    </li>`).join('');
+        }
 
         function renderDashboardAll() {
             calculateStandings();
@@ -2309,25 +2362,16 @@
             if (isAdmin) {
                 let listEl = document.getElementById("adminPanelListingItems");
                 if(listEl) {
-                    listEl.innerHTML = activeAdminSubTab === 'teams' ? teams.map(t => `
-                        <li class="management-item">
-                            <div><strong>🛡️ ${t.name}</strong><div style="font-size:10px; color:var(--text-muted);">Manager: ${t.manager || 'None'}</div></div>
-                            <div class="item-action-links"><span class="action-link rename" onclick="renameTeam('${t.id}')">Modify</span><span class="action-link delete" onclick="deleteTeam('${t.id}')">Delete</span></div>
-                        </li>`).join('') : players.map(p => `
-                        <li class="management-item" style="flex-direction:column; align-items:stretch; gap:4px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <strong>👤 ${p.name} <small style="color:var(--text-muted);">(${teams.find(t=>t.id===p.teamId)?.name || 'FA'})</small></strong>
-                                <div style="display:flex; gap:6px;">
-                                    <span class="action-link rename" onclick="openPlayerEditModal('${p.id}')" style="color:var(--accent-cyan);">✏️ Edit</span>
-                                    <span class="action-link delete" onclick="unregisterPlayer('${p.id}')">Remove</span>
-                                </div>
-                            </div>
-                            <div style="display:flex; gap:8px;">
-                                <div class="modifier-controls"><span class="stat-badge-info">G: ${p.goals}</span><button class="modifier-btn" onclick="changePlayerStat('${p.id}','goals',1)">+</button><button class="modifier-btn" onclick="changePlayerStat('${p.id}','goals',-1)">-</button></div>
-                                <div class="modifier-controls"><span class="stat-badge-info">A: ${p.assists}</span><button class="modifier-btn" onclick="changePlayerStat('${p.id}','assists',1)">+</button><button class="modifier-btn" onclick="changePlayerStat('${p.id}','assists',-1)">-</button></div>
-                                <div class="modifier-controls"><span class="stat-badge-info">OG: ${p.ownGoals}</span><button class="modifier-btn" onclick="changePlayerStat('${p.id}','ownGoals',1)">+</button><button class="modifier-btn" onclick="changePlayerStat('${p.id}','ownGoals',-1)">-</button></div>
-                            </div>
-                        </li>`).join('');
+                    if (activeAdminSubTab === 'teams') {
+                        listEl.innerHTML = teams.map(t => `
+                            <li class="management-item">
+                                <div><strong>🛡️ ${t.name}</strong><div style="font-size:10px; color:var(--text-muted);">Manager: ${t.manager || 'None'}</div></div>
+                                <div class="item-action-links"><span class="action-link rename" onclick="renameTeam('${t.id}')">Modify</span><span class="action-link delete" onclick="deleteTeam('${t.id}')">Delete</span></div>
+                            </li>`).join('') || `<div class="empty-state-notice">No registered club profiles found.</div>`;
+                    } else {
+                        // Use the search filter so results stay filtered after a data refresh
+                        filterAdminPlayerList();
+                    }
                 }
             }
 
