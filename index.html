@@ -201,6 +201,44 @@
         }
         .sandbox-dot { width: 8px; height: 8px; background-color: var(--accent-yellow); border-radius: 50%; }
 
+        /* --- SEASON SELECTOR --- */
+        .season-selector { position: relative; }
+        .season-selector-btn {
+            display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px;
+            padding: 8px 14px; cursor: pointer; font-family: inherit; color: #fff;
+            transition: border-color 0.15s ease;
+        }
+        .season-selector-btn:hover { border-color: var(--accent-cyan); }
+        .season-selector-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); }
+        .season-selector-value { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 800; }
+        .season-selector-chevron { font-size: 11px; color: var(--text-muted); transition: transform 0.15s ease; }
+        .season-selector-btn.menu-open .season-selector-chevron { transform: rotate(180deg); }
+        .season-selector-menu {
+            display: none; position: absolute; top: calc(100% + 6px); right: 0; min-width: 170px;
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); overflow: hidden; z-index: 500;
+        }
+        .season-selector-menu.open { display: block; }
+        .season-option {
+            display: flex; align-items: center; gap: 10px; padding: 10px 14px; font-size: 13px; font-weight: 600;
+            cursor: pointer; color: var(--text-muted); transition: background 0.15s ease;
+        }
+        .season-option:hover { background: rgba(255,255,255,0.04); }
+        .season-option.selected { color: #fff; }
+        .season-option-check { width: 14px; color: var(--accent-cyan); font-weight: 900; flex-shrink: 0; }
+        .season-live-tag {
+            font-size: 9px; font-weight: 800; letter-spacing: 0.5px; color: var(--accent-green);
+            background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3);
+            padding: 1px 6px; border-radius: 20px; margin-left: 6px; vertical-align: middle;
+        }
+        .historical-season-banner {
+            display: none; align-items: center; gap: 8px; background: rgba(234,179,8,0.08);
+            border: 1px solid rgba(234,179,8,0.25); color: var(--accent-yellow); font-size: 12px; font-weight: 600;
+            padding: 10px 16px; border-radius: 10px; margin-bottom: 18px;
+        }
+        .historical-season-banner span[onclick] { text-decoration: underline; cursor: pointer; color: #fff; }
+
         .admin-btn {
             background-color: #1e293b;
             color: var(--accent-yellow);
@@ -293,7 +331,65 @@
         tr:last-child td { border-bottom: none; }
 
         tr.first-place-row td { background-color: var(--gold-glow); color: var(--accent-yellow); border-bottom: 1px solid rgba(234, 179, 8, 0.3); }
+        @keyframes championGlow {
+            0%, 100% { text-shadow: 0 0 12px rgba(234,179,8,0.5), 0 0 24px rgba(234,179,8,0.25); }
+            50% { text-shadow: 0 0 22px rgba(234,179,8,0.9), 0 0 40px rgba(234,179,8,0.5); }
+        }
+        #championTeamName { animation: championGlow 2.2s ease-in-out infinite; }
         tr.last-place-row td { background-color: var(--red-glow); color: var(--danger-red); border-bottom: 1px solid rgba(239, 68, 68, 0.2); }
+
+        /* --- FLOATING CELEBRATE BUTTON --- */
+        .celebrate-floating-btn {
+            position: fixed;
+            bottom: 26px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 22px;
+            border-radius: 999px;
+            border: 1px solid rgba(234, 179, 8, 0.4);
+            background: linear-gradient(135deg, #1a1406, #0b1119 65%);
+            box-shadow: 0 8px 28px rgba(234, 179, 8, 0.25), 0 0 0 1px rgba(234,179,8,0.08) inset;
+            cursor: pointer;
+            color: #fff;
+            font-family: inherit;
+            animation: celebrateFloatBob 2.4s ease-in-out infinite;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .celebrate-floating-btn:hover {
+            box-shadow: 0 10px 34px rgba(234, 179, 8, 0.4), 0 0 0 1px rgba(234,179,8,0.15) inset;
+        }
+        .celebrate-floating-btn:active { transform: translateX(-50%) scale(0.96); }
+        .celebrate-floating-btn.celebrate-pulse { animation: celebrateFloatBob 2.4s ease-in-out infinite, celebratePulseKick 0.4s ease; }
+        @keyframes celebrateFloatBob {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-4px); }
+        }
+        @keyframes celebratePulseKick {
+            0% { transform: translateX(-50%) scale(1); }
+            40% { transform: translateX(-50%) scale(1.08); }
+            100% { transform: translateX(-50%) scale(1); }
+        }
+        .celebrate-btn-icon { font-size: 22px; animation: celebrateIconSpin 1.8s ease-in-out infinite; }
+        @keyframes celebrateIconSpin {
+            0%, 100% { transform: rotate(-8deg); }
+            50% { transform: rotate(8deg); }
+        }
+        .celebrate-btn-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.3; }
+        .celebrate-btn-title { font-size: 13px; font-weight: 800; color: var(--accent-yellow); letter-spacing: 0.2px; white-space: nowrap; }
+        .celebrate-btn-sub { font-size: 11px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+        .celebrate-floating-btn.already-celebrated { border-color: rgba(16,185,129,0.4); }
+        .celebrate-floating-btn.already-celebrated .celebrate-btn-title { color: var(--accent-green); }
+        .celebrate-floating-btn.already-celebrated .celebrate-btn-sub::after { content: ' · you\'re in! ✓'; color: var(--accent-green); }
+        @media (max-width: 640px) {
+            .celebrate-floating-btn { left: 16px; right: 16px; transform: none; justify-content: center; bottom: 16px; }
+            .celebrate-floating-btn:active { transform: scale(0.96); }
+            @keyframes celebrateFloatBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+            @keyframes celebratePulseKick { 0% { transform: scale(1); } 40% { transform: scale(1.08); } 100% { transform: scale(1); } }
+        }
 
         .pos-num {
             display: inline-flex; justify-content: center; align-items: center; width: 24px; height: 24px;
@@ -727,8 +823,21 @@
                 <h1 style="font-size: 22px; font-weight: 700;" id="pageMainHeading">Dashboard Overview</h1>
                 <p style="color: var(--text-muted); font-size: 13px; margin-top: 2px;">Tournament tracking management dashboard system.</p>
             </div>
-            <div class="sandbox-badge"><div class="sandbox-dot"></div>Cloud Synchronized System</div>
+            <div style="display:flex; align-items:center; gap:14px;">
+                <div class="season-selector" id="seasonSelector">
+                    <button class="season-selector-btn" id="seasonSelectorBtn" onclick="toggleSeasonDropdown(event)">
+                        <span class="season-selector-label">Season</span>
+                        <span class="season-selector-value"><span id="seasonSelectorValue">—</span><span class="season-selector-chevron">▾</span></span>
+                    </button>
+                    <div class="season-selector-menu" id="seasonSelectorMenu"></div>
+                </div>
+                <div class="sandbox-badge"><div class="sandbox-dot"></div>Cloud Synchronized System</div>
+            </div>
         </header>
+        <div id="historicalSeasonBanner" class="historical-season-banner">
+            📖 You're viewing the <strong id="historicalSeasonBannerLabel"></strong> season in read-only archive mode.
+            <span onclick="jumpToCurrentSeason()">Jump back to the current season →</span>
+        </div>
 
         <!-- SUB-PAGE 1: DASHBOARD OVERVIEW -->
         <div id="page-dash" class="app-page active">
@@ -736,6 +845,14 @@
             <div class="news-ticker" id="dashNewsTicker" style="display:none; cursor:pointer;" onclick="switchAppPage('news'); clearNewsBadge()" title="Click to view all news">
                 <span class="news-ticker-label">📰 Latest</span>
                 <span class="news-ticker-text" id="dashNewsTickerText"></span>
+            </div>
+            <div class="card-wrapper" id="seasonChampionCard" style="display:none; overflow:hidden; position:relative; text-align:center; padding:32px 20px;">
+                <canvas id="fireworksCanvas" style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;"></canvas>
+                <div style="position:relative; z-index:2;">
+                    <div style="font-size:13px; letter-spacing:2px; color:var(--accent-yellow); font-weight:700; text-transform:uppercase; margin-bottom:8px;">🏆 Season Champions</div>
+                    <div id="championTeamName" style="font-size:32px; font-weight:900; color:#fff;"></div>
+                    <div style="font-size:12px; color:var(--text-muted); margin-top:8px;">Congratulations on winning the league!</div>
+                </div>
             </div>
             <div class="grid-two-columns">
                 <!-- Left Column: League Standings & Leaderboard Micro-Cards Below -->
@@ -944,6 +1061,7 @@
                 <div class="panel-tab-pill-box">
                     <button class="pill-btn active" id="subTabTeams" onclick="switchAdminSubTab('teams')">Clubs Roster</button>
                     <button class="pill-btn" id="subTabPlayers" onclick="switchAdminSubTab('players')">Players Registry</button>
+                    <button class="pill-btn" id="subTabSeason" onclick="switchAdminSubTab('season')">Season Settings</button>
                 </div>
             </div>
             <div class="panel-workspace-grid">
@@ -1077,6 +1195,16 @@
         </div>
     </div>
 
+    <!-- CHAMPION CELEBRATION: FLOATING BUTTON + FULLSCREEN FIREWORKS -->
+    <canvas id="celebrationBurstCanvas" style="position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:9998;"></canvas>
+    <button id="celebrateFloatingBtn" class="celebrate-floating-btn" style="display:none;" onclick="handleCelebrateClick()">
+        <span class="celebrate-btn-icon">🎉</span>
+        <span class="celebrate-btn-text">
+            <span class="celebrate-btn-title">Celebrate <span id="celebrateChampionLabel"></span>!</span>
+            <span class="celebrate-btn-sub"><span id="celebrateCountLabel">0</span> fans have celebrated</span>
+        </span>
+    </button>
+
     <script>
         // --- DATABASE ROUTER CONFIGURATION ---
         const firebaseConfig = {
@@ -1105,6 +1233,11 @@
         let matchFilterState = 'all';
         let activeEditingMatchId = null;
         let historicalPositionsCache = {};
+        let seasonConfig = { gamesPerTeam: null };
+        let celebrationClicks = {};
+        let allSeasons = {};
+        let currentSeason = '';
+        let viewingSeason = '';
 
         function switchAppPage(pageId) {
             activeAppPageId = pageId;
@@ -1130,19 +1263,107 @@
                 let panel = document.getElementById("newsAdminPostPanel");
                 if (panel) panel.style.display = isAdmin ? 'block' : 'none';
             }
+            if (pageId !== 'dash') stopFireworks();
 
             renderDashboardAll();
         }
 
+        function computeDefaultSeasonLabel(d) {
+            d = d || new Date();
+            let y = d.getFullYear();
+            // Football-calendar convention: seasons start mid-year (~July) and
+            // run into the following year, e.g. a season starting July 2026 is "2026-27".
+            let startYear = d.getMonth() >= 6 ? y : y - 1;
+            let endYy = (startYear + 1) % 100;
+            return startYear + '-' + (endYy < 10 ? '0' + endYy : endYy);
+        }
+
+        function pointWorkingVarsToSeason(label) {
+            let bucket = allSeasons[label];
+            if (!bucket) return;
+            teams = Array.isArray(bucket.teams) ? bucket.teams : Object.values(bucket.teams || {});
+            players = Array.isArray(bucket.players) ? bucket.players : Object.values(bucket.players || {});
+            matches = Array.isArray(bucket.matches) ? bucket.matches : Object.values(bucket.matches || {});
+            newsItems = Array.isArray(bucket.newsItems) ? bucket.newsItems : Object.values(bucket.newsItems || {});
+            seasonConfig = bucket.seasonConfig && typeof bucket.seasonConfig === 'object' ? bucket.seasonConfig : { gamesPerTeam: null };
+        }
+
+        function seasonLabelSortDesc(a, b) {
+            let na = parseInt((a.match(/\d+/) || [0])[0]);
+            let nb = parseInt((b.match(/\d+/) || [0])[0]);
+            return nb - na;
+        }
+        function renderSeasonSelectorOptions() {
+            let valueEl = document.getElementById('seasonSelectorValue');
+            if (!valueEl) return;
+            valueEl.innerText = viewingSeason || '—';
+            let labels = Object.keys(allSeasons).sort(seasonLabelSortDesc);
+            document.getElementById('seasonSelectorMenu').innerHTML = labels.map(l => `
+                <div class="season-option ${l === viewingSeason ? 'selected' : ''}" onclick="selectSeason('${l}')">
+                    <span class="season-option-check">${l === viewingSeason ? '✓' : ''}</span>
+                    <span>${l}${l === currentSeason ? '<span class="season-live-tag">LIVE</span>' : ''}</span>
+                </div>`).join('');
+        }
+        function toggleSeasonDropdown(evt) {
+            if (evt) evt.stopPropagation();
+            document.getElementById('seasonSelectorMenu').classList.toggle('open');
+            document.getElementById('seasonSelectorBtn').classList.toggle('menu-open');
+        }
+        function closeSeasonDropdown() {
+            document.getElementById('seasonSelectorMenu')?.classList.remove('open');
+            document.getElementById('seasonSelectorBtn')?.classList.remove('menu-open');
+        }
+        window.addEventListener('click', (e) => {
+            let wrap = document.getElementById('seasonSelector');
+            if (wrap && !wrap.contains(e.target)) closeSeasonDropdown();
+        });
+        function selectSeason(label) {
+            closeSeasonDropdown();
+            if (label === viewingSeason || !allSeasons[label]) return;
+            if (isAdmin && label !== currentSeason) {
+                // Historical seasons are read-only — log out of admin mode when browsing them.
+                isAdmin = false;
+                document.getElementById("adminToggle").innerText = "🔐 Admin Login";
+                document.getElementById("adminToggle").classList.remove("logged-in");
+                document.getElementById("adminControlPanel").classList.remove("visible");
+                document.getElementById("matchCenterAdminActions").style.display = "none";
+            }
+            viewingSeason = label;
+            pointWorkingVarsToSeason(label);
+            renderSeasonSelectorOptions();
+            updateWeekendDropdownOptions();
+            updateHistoricalBanner();
+            renderDashboardAll();
+        }
+        function updateHistoricalBanner() {
+            let banner = document.getElementById('historicalSeasonBanner');
+            if (!banner) return;
+            if (viewingSeason && viewingSeason !== currentSeason) {
+                document.getElementById('historicalSeasonBannerLabel').innerText = viewingSeason;
+                banner.style.display = 'flex';
+            } else {
+                banner.style.display = 'none';
+            }
+        }
+        function jumpToCurrentSeason() { selectSeason(currentSeason); }
+
         db.ref('leagueData').on('value', (snapshot) => {
             const data = snapshot.val();
-            if (data) {
-                teams = Array.isArray(data.teams) ? data.teams : Object.values(data.teams || {});
-                players = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
-                matches = Array.isArray(data.matches) ? data.matches : Object.values(data.matches || {});
-                newsItems = Array.isArray(data.newsItems) ? data.newsItems : Object.values(data.newsItems || {});
+            if (!data) return;
 
-                // ── Migrate all old tags → MATCHDAY N ──
+            if (data.seasons && typeof data.seasons === 'object') {
+                // Already in multi-season format.
+                allSeasons = data.seasons;
+                currentSeason = (data.currentSeason && allSeasons[data.currentSeason]) ? data.currentSeason : Object.keys(allSeasons)[0];
+            } else if (data.teams || data.players || data.matches || data.newsItems) {
+                // ── One-time migration: wrap legacy single-season data into the new format ──
+                let legacyTeams = Array.isArray(data.teams) ? data.teams : Object.values(data.teams || {});
+                let legacyPlayers = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
+                let legacyMatches = Array.isArray(data.matches) ? data.matches : Object.values(data.matches || {});
+                let legacyNews = Array.isArray(data.newsItems) ? data.newsItems : Object.values(data.newsItems || {});
+                let legacySeasonConfig = data.seasonConfig && typeof data.seasonConfig === 'object' ? data.seasonConfig : { gamesPerTeam: null };
+
+                // ── Migrate all old fixture tags → MATCHDAY N (one-time, legacy data only) ──
                 try {
                     var mdTagPattern  = new RegExp('^MATCHDAY\\s+\\d+$', 'i');
                     var mdNumPattern  = new RegExp('MATCHDAY\\s+(\\d+)', 'i');
@@ -1150,7 +1371,7 @@
                     var tagToMd = {};
                     var mdCounter = 1;
                     var tagOrder = [];
-                    matches.forEach(function(m) {
+                    legacyMatches.forEach(function(m) {
                         if (m.tag && m.tag !== 'GLOBAL STAT OVERRIDE ADJUSTMENT DATA' && !tagToMd.hasOwnProperty(m.tag)) {
                             tagOrder.push(m.tag);
                             tagToMd[m.tag] = null;
@@ -1171,19 +1392,49 @@
                             tagToMd[tag] = 'MATCHDAY ' + mdCounter++;
                         }
                     });
-                    matches = matches.map(function(m) {
+                    legacyMatches = legacyMatches.map(function(m) {
                         if (m.tag && tagToMd[m.tag]) return Object.assign({}, m, { tag: tagToMd[m.tag] });
                         return m;
                     });
                 } catch(migErr) { console.warn('Tag migration error:', migErr); }
-                updateWeekendDropdownOptions();
-                renderDashboardAll();
+
+                let defaultLabel = computeDefaultSeasonLabel();
+                allSeasons = {};
+                allSeasons[defaultLabel] = {
+                    teams: legacyTeams, players: legacyPlayers, matches: legacyMatches,
+                    newsItems: legacyNews, seasonConfig: legacySeasonConfig
+                };
+                currentSeason = defaultLabel;
+                // Persist the migrated structure immediately so future loads use the new format.
+                db.ref('leagueData').set({ seasons: allSeasons, currentSeason: currentSeason });
+            } else {
+                return;
             }
+
+            if (!viewingSeason || !allSeasons[viewingSeason]) viewingSeason = currentSeason;
+            pointWorkingVarsToSeason(viewingSeason);
+            updateWeekendDropdownOptions();
+            renderSeasonSelectorOptions();
+            updateHistoricalBanner();
+            renderDashboardAll();
         });
 
         function persistDatabaseState() {
-            db.ref('leagueData').set({ teams, players, matches, newsItems });
+            if (viewingSeason !== currentSeason) {
+                alert("You're viewing a past season in read-only archive mode. Switch to the current season from the Season menu to make changes.");
+                return;
+            }
+            allSeasons[viewingSeason] = { teams, players, matches, newsItems, seasonConfig };
+            db.ref('leagueData').set({ seasons: allSeasons, currentSeason: currentSeason });
         }
+
+        // Separate top-level path so concurrent celebration clicks never race
+        // against unrelated leagueData writes (which overwrite the whole node).
+        // Structure: celebrationClicks/{seasonLabel}/{teamId} = count
+        db.ref('celebrationClicks').on('value', (snapshot) => {
+            celebrationClicks = snapshot.val() || {};
+            updateCelebrateButton();
+        });
 
         function handleAuthAction() {
             if (isAdmin) {
@@ -1755,6 +2006,90 @@
             persistDatabaseState();
         }
 
+        function defaultDoubleRoundRobinLength() {
+            let n = teams.filter(t => t.id !== 'dummy-bye').length;
+            if (n < 2) return 0;
+            return (n - 1) * 2;
+        }
+        function gamesPlayedByTeam(teamId) {
+            return matches.filter(m => m.completed && m.tag !== "GLOBAL STAT OVERRIDE ADJUSTMENT DATA" && (m.homeId === teamId || m.awayId === teamId)).length;
+        }
+        function currentSeasonTarget() {
+            return (seasonConfig && seasonConfig.gamesPerTeam) ? seasonConfig.gamesPerTeam : defaultDoubleRoundRobinLength();
+        }
+        function isSeasonComplete() {
+            let realTeams = teams.filter(t => t.id !== 'dummy-bye');
+            if (realTeams.length < 2) return false;
+            let target = currentSeasonTarget();
+            if (target <= 0) return false;
+            return realTeams.every(t => gamesPlayedByTeam(t.id) >= target);
+        }
+        function updateSeasonLength() {
+            let raw = document.getElementById("seasonGamesPerTeamInput").value.trim();
+            if (raw === '') {
+                seasonConfig = { gamesPerTeam: null };
+            } else {
+                let val = parseInt(raw);
+                if (!val || val < 1) return alert("Enter a valid number of games per team (1 or more), or leave it blank to use the automatic default.");
+                seasonConfig = { gamesPerTeam: val };
+            }
+            persistDatabaseState();
+            switchAdminSubTabDesignRender();
+            alert("✅ Season length updated. The system will track progress toward this target and stop auto-generating fixtures once every club reaches it.");
+        }
+
+        function updateCurrentSeasonLabel() {
+            let raw = document.getElementById("currentSeasonLabelInput").value.trim();
+            if (!raw) return alert("Enter a season label, e.g. 2026-27");
+            if (raw === currentSeason) return;
+            if (allSeasons[raw]) return alert('A season labeled "' + raw + '" already exists. Choose a different label, or browse that season from the Season menu.');
+            allSeasons[raw] = allSeasons[currentSeason];
+            delete allSeasons[currentSeason];
+            currentSeason = raw;
+            viewingSeason = raw;
+            db.ref('leagueData').set({ seasons: allSeasons, currentSeason: currentSeason });
+            renderSeasonSelectorOptions();
+            updateHistoricalBanner();
+            switchAdminSubTabDesignRender();
+            renderDashboardAll();
+            alert("✅ Season label updated to " + raw);
+        }
+
+        function startNewLeagueSeason() {
+            let raw = document.getElementById("newSeasonLabelInput").value.trim();
+            if (!raw) return alert("Enter a label for the new season, e.g. 2027-28");
+            if (allSeasons[raw]) return alert('A season labeled "' + raw + '" already exists.');
+            if (!confirm(`Start the ${raw} season? This will archive all current fixtures, news and results under "${currentSeason}" (still browsable from the Season menu) and begin a fresh fixture list for ${raw}. Clubs and players carry over with their stats reset to zero.`)) return;
+
+            // Freeze the season that's ending, exactly as it stands right now.
+            allSeasons[currentSeason] = { teams, players, matches, newsItems, seasonConfig };
+
+            // The new season starts with the same roster but a clean slate of fixtures/news.
+            let carriedTeams = teams.filter(t => t.id !== 'dummy-bye').map(t => Object.assign({}, t, {
+                played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, gd: 0, pts: 0
+            }));
+            let carriedPlayers = players.map(p => Object.assign({}, p, { goals: 0, assists: 0, ownGoals: 0 }));
+
+            allSeasons[raw] = {
+                teams: carriedTeams,
+                players: carriedPlayers,
+                matches: [],
+                newsItems: [],
+                seasonConfig: { gamesPerTeam: null }
+            };
+
+            currentSeason = raw;
+            viewingSeason = raw;
+            pointWorkingVarsToSeason(raw);
+            db.ref('leagueData').set({ seasons: allSeasons, currentSeason: currentSeason });
+            renderSeasonSelectorOptions();
+            updateHistoricalBanner();
+            updateWeekendDropdownOptions();
+            switchAdminSubTabDesignRender();
+            renderDashboardAll();
+            alert(`🏁 Welcome to the ${raw} season!`);
+        }
+
         function autoGenerateFixtures() {
             if (teams.length < 2) return alert("Add at least 2 clubs first.");
             if (!confirm("Generate upcoming fixtures? Completed matches are kept. Only unplayed fixtures will be replaced.")) return;
@@ -1826,6 +2161,19 @@
 
             if (remainingRounds.length === 0) {
                 return alert("All fixtures for both legs have been completed! The full season is done.");
+            }
+
+            // ── Respect admin-configured season length (games per team) ──
+            let seasonTarget = currentSeasonTarget();
+            if (seasonTarget > 0) {
+                let alreadyPlayedRounds = leg1PlayedSet.size + leg2PlayedSet.size;
+                let roundsAllowed = seasonTarget - alreadyPlayedRounds;
+                if (roundsAllowed <= 0) {
+                    return alert(`🏁 Season length reached — every club has already played ${alreadyPlayedRounds} of the ${seasonTarget} scheduled games this season. Adjust the season length in Admin ▸ Season Settings if you want to schedule more matchdays.`);
+                }
+                if (remainingRounds.length > roundsAllowed) {
+                    remainingRounds = remainingRounds.slice(0, roundsAllowed);
+                }
             }
 
             // ── Enforce rest: a team that played first (home) last matchday cannot play home first next matchday ──
@@ -1916,6 +2264,7 @@
 
         function switchAdminSubTabDesignRender() {
             let inputCol = document.getElementById("adminPanelInputColumn");
+            document.querySelectorAll(".panel-tab-pill-box .pill-btn").forEach(b => b.classList.remove("active"));
             if (activeAdminSubTab === 'teams') {
                 document.getElementById("subTabTeams").classList.add("active");
                 document.getElementById("managementListTitleLabel").innerText = "Registered Clubs Directory";
@@ -1927,6 +2276,35 @@
                         <div><label class="form-label">Football Club Name</label><input type="text" id="newTeamInput" class="text-field-widget"></div>
                         <div><label class="form-label">Manager Profile</label><input type="text" id="newTeamManagerInput" class="text-field-widget"></div>
                         <button class="register-action-btn" onclick="addNewTeamAction()">Add Club Profile</button>
+                    </div>`;
+            } else if (activeAdminSubTab === 'season') {
+                document.getElementById("subTabSeason").classList.add("active");
+                document.getElementById("managementListTitleLabel").innerText = "Per-Club Season Progress";
+                let sw = document.getElementById('adminPlayerSearchWrap');
+                if (sw) { sw.style.display = 'none'; }
+                let realTeams = teams.filter(t => t.id !== 'dummy-bye');
+                let suggested = defaultDoubleRoundRobinLength();
+                let current = (seasonConfig && seasonConfig.gamesPerTeam) ? seasonConfig.gamesPerTeam : '';
+                inputCol.innerHTML = `
+                    <div class="card-wrapper" style="background-color:#05070a; display:flex; flex-direction:column; gap:10px;">
+                        <div>
+                            <label class="form-label">Current Season Label</label>
+                            <input type="text" id="currentSeasonLabelInput" class="text-field-widget" value="${currentSeason}" placeholder="e.g. 2026-27">
+                            <p style="font-size:11px; color:var(--text-muted); margin-top:6px; line-height:1.5;">This is the label fans see for the season currently being played (e.g. "2026-27"). Update it here if it's ever wrong.</p>
+                        </div>
+                        <button class="register-action-btn" onclick="updateCurrentSeasonLabel()">💾 Save Season Label</button>
+                        <div style="border-top:1px solid var(--border-color); margin-top:6px; padding-top:14px;">
+                            <label class="form-label">Games Per Team This Season</label>
+                            <input type="number" id="seasonGamesPerTeamInput" class="text-field-widget" min="1" value="${current}" placeholder="${suggested || 'e.g. 10'}">
+                            <p style="font-size:11px; color:var(--text-muted); margin-top:6px; line-height:1.5;">A full home-and-away round robin for ${realTeams.length} club${realTeams.length===1?'':'s'} works out to ${suggested} games per club. Leave this blank to use that automatic default, or set your own number to end the season earlier.</p>
+                            <button class="register-action-btn" onclick="updateSeasonLength()">💾 Save Season Length</button>
+                        </div>
+                        <div style="border-top:1px solid var(--border-color); margin-top:6px; padding-top:14px;">
+                            <label class="form-label">🏁 Start a New Season</label>
+                            <p style="font-size:11px; color:var(--text-muted); margin:4px 0 8px; line-height:1.5;">Archives all of this season's fixtures, news and results under "${currentSeason}" so fans can still browse them from the Season menu, and starts a fresh season with the same clubs & players but a clean fixture list.</p>
+                            <input type="text" id="newSeasonLabelInput" class="text-field-widget" placeholder="e.g. ${(function(){ let n = parseInt((currentSeason.match(/\d+/)||[0])[0]); return n ? (n+1)+'-'+String((n+2)%100).padStart(2,'0') : '2027-28'; })()}">
+                            <button class="register-action-btn" style="margin-top:8px;" onclick="startNewLeagueSeason()">Start New Season</button>
+                        </div>
                     </div>`;
             } else {
                 document.getElementById("subTabPlayers").classList.add("active");
@@ -2158,9 +2536,211 @@
                     </li>`).join('');
         }
 
+        // ---- CHAMPIONSHIP FIREWORKS ANIMATION ----
+        let fireworksAnimationId = null;
+        let fireworksParticles = [];
+        let fireworksLastBurst = 0;
+        function resizeFireworksCanvas() {
+            let canvas = document.getElementById('fireworksCanvas');
+            let card = document.getElementById('seasonChampionCard');
+            if (!canvas || !card) return;
+            canvas.width = card.clientWidth;
+            canvas.height = card.clientHeight;
+        }
+        function spawnFireworkBurst(cx, cy) {
+            let colors = ['#eab308', '#06b6d4', '#10b981', '#f97316', '#ffffff', '#ef4444'];
+            let count = 40 + Math.floor(Math.random() * 20);
+            for (let i = 0; i < count; i++) {
+                let angle = (Math.PI * 2 * i) / count;
+                let speed = 2 + Math.random() * 3;
+                fireworksParticles.push({
+                    x: cx, y: cy,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    alpha: 1,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    size: 1.5 + Math.random() * 1.5
+                });
+            }
+        }
+        function fireworksLoop(ts) {
+            let card = document.getElementById('seasonChampionCard');
+            let canvas = document.getElementById('fireworksCanvas');
+            if (!canvas || !card || card.style.display === 'none') {
+                fireworksAnimationId = null;
+                return;
+            }
+            let ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (!fireworksLastBurst || ts - fireworksLastBurst > 900) {
+                fireworksLastBurst = ts;
+                let cx = canvas.width * (0.15 + Math.random() * 0.7);
+                let cy = canvas.height * (0.15 + Math.random() * 0.4);
+                spawnFireworkBurst(cx, cy);
+            }
+
+            fireworksParticles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.03;
+                p.alpha -= 0.012;
+            });
+            fireworksParticles = fireworksParticles.filter(p => p.alpha > 0);
+
+            fireworksParticles.forEach(p => {
+                ctx.globalAlpha = Math.max(0, p.alpha);
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+
+            fireworksAnimationId = requestAnimationFrame(fireworksLoop);
+        }
+        function startFireworks() {
+            resizeFireworksCanvas();
+            if (fireworksAnimationId) return;
+            fireworksLastBurst = 0;
+            fireworksAnimationId = requestAnimationFrame(fireworksLoop);
+        }
+        function stopFireworks() {
+            if (fireworksAnimationId) { cancelAnimationFrame(fireworksAnimationId); fireworksAnimationId = null; }
+            fireworksParticles = [];
+            let canvas = document.getElementById('fireworksCanvas');
+            if (canvas) { let ctx = canvas.getContext('2d'); if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height); }
+        }
+        window.addEventListener('resize', () => { if (fireworksAnimationId) resizeFireworksCanvas(); });
+
+        // ---- FLOATING CELEBRATE BUTTON + FULLSCREEN CLICK FIREWORKS ----
+        function getChampionTeam() {
+            let realTeams = teams.filter(t => t.id !== 'dummy-bye');
+            return realTeams.length ? realTeams[0] : null;
+        }
+        function hasCelebratedSeason(seasonLabel, teamId) {
+            try { return localStorage.getItem('slCelebrated:' + seasonLabel + ':' + teamId) === '1'; }
+            catch (e) { return false; }
+        }
+        function markCelebratedSeason(seasonLabel, teamId) {
+            try { localStorage.setItem('slCelebrated:' + seasonLabel + ':' + teamId, '1'); } catch (e) {}
+        }
+        function updateCelebrateButton() {
+            let btn = document.getElementById('celebrateFloatingBtn');
+            if (!btn) return;
+            if (isSeasonComplete()) {
+                let champion = getChampionTeam();
+                document.getElementById('celebrateChampionLabel').innerText = champion ? (champion.name + ' — ' + viewingSeason) : ('the ' + viewingSeason + ' Champions');
+                let count = (champion && celebrationClicks[viewingSeason]) ? (celebrationClicks[viewingSeason][champion.id] || 0) : 0;
+                document.getElementById('celebrateCountLabel').innerText = count.toLocaleString();
+                let already = champion && hasCelebratedSeason(viewingSeason, champion.id);
+                btn.classList.toggle('already-celebrated', !!already);
+                btn.style.display = 'flex';
+            } else {
+                btn.style.display = 'none';
+            }
+        }
+
+        let celebrationBurstAnimId = null;
+        let celebrationBurstParticles = [];
+        let celebrationBurstEndsAt = 0;
+        function resizeCelebrationCanvas() {
+            let canvas = document.getElementById('celebrationBurstCanvas');
+            if (!canvas) return;
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCelebrationCanvas);
+        function spawnCelebrationBurst(cx, cy) {
+            let colors = ['#eab308', '#06b6d4', '#10b981', '#f97316', '#ffffff', '#ef4444'];
+            let count = 55 + Math.floor(Math.random() * 25);
+            for (let i = 0; i < count; i++) {
+                let angle = (Math.PI * 2 * i) / count;
+                let speed = 3 + Math.random() * 4;
+                celebrationBurstParticles.push({
+                    x: cx, y: cy,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    alpha: 1,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    size: 2 + Math.random() * 2
+                });
+            }
+        }
+        function celebrationBurstLoop(ts) {
+            let canvas = document.getElementById('celebrationBurstCanvas');
+            if (!canvas) { celebrationBurstAnimId = null; return; }
+            let ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            celebrationBurstParticles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.05;
+                p.alpha -= 0.011;
+            });
+            celebrationBurstParticles = celebrationBurstParticles.filter(p => p.alpha > 0);
+
+            celebrationBurstParticles.forEach(p => {
+                ctx.globalAlpha = Math.max(0, p.alpha);
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+
+            if (celebrationBurstParticles.length > 0 || ts < celebrationBurstEndsAt) {
+                celebrationBurstAnimId = requestAnimationFrame(celebrationBurstLoop);
+            } else {
+                celebrationBurstAnimId = null;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+        function triggerCelebrationFireworks() {
+            resizeCelebrationCanvas();
+            let canvas = document.getElementById('celebrationBurstCanvas');
+            celebrationBurstEndsAt = performance.now() + 1500;
+            let bursts = 4;
+            for (let i = 0; i < bursts; i++) {
+                setTimeout(() => {
+                    let cx = canvas.width * (0.2 + Math.random() * 0.6);
+                    let cy = canvas.height * (0.15 + Math.random() * 0.4);
+                    spawnCelebrationBurst(cx, cy);
+                }, i * 220);
+            }
+            if (!celebrationBurstAnimId) celebrationBurstAnimId = requestAnimationFrame(celebrationBurstLoop);
+        }
+        function handleCelebrateClick() {
+            let champion = getChampionTeam();
+            if (!champion) return;
+
+            // The animation always plays — fans can click as many times as they
+            // like — but only the very first click per season/team is recorded.
+            triggerCelebrationFireworks();
+
+            let btn = document.getElementById('celebrateFloatingBtn');
+            btn.classList.add('celebrate-pulse');
+            setTimeout(() => btn.classList.remove('celebrate-pulse'), 400);
+
+            if (hasCelebratedSeason(viewingSeason, champion.id)) return;
+            markCelebratedSeason(viewingSeason, champion.id);
+
+            // Optimistic local bump so the click feels instant, then sync via
+            // an atomic transaction so simultaneous clicks from other fans
+            // never clobber each other.
+            if (!celebrationClicks[viewingSeason]) celebrationClicks[viewingSeason] = {};
+            celebrationClicks[viewingSeason][champion.id] = (celebrationClicks[viewingSeason][champion.id] || 0) + 1;
+            updateCelebrateButton();
+            db.ref('celebrationClicks/' + viewingSeason + '/' + champion.id).transaction(current => (current || 0) + 1);
+        }
+
+
         function renderDashboardAll() {
             calculateStandings();
+            updateCelebrateButton();
 
+            let seasonDone = isSeasonComplete();
             let makeTableRows = () => teams.map((t, idx) => {
                 let pos = idx + 1;
                 let cls = pos === 1 ? 'first-place-row' : (pos === teams.length && teams.length > 1 ? 'last-place-row' : '');
@@ -2186,7 +2766,7 @@
 
                 return `<tr class="${cls}">
                     <td><span class="pos-num">${pos}${trend}</span></td>
-                    <td><strong>${t.name}</strong></td>
+                    <td><strong>${t.name}${(seasonDone && pos===1) ? ' 🏆' : ''}</strong></td>
                     <td class="col-center">${t.played}</td>
                     <td class="col-center">${t.won}</td>
                     <td class="col-center">${t.drawn}</td>
@@ -2284,6 +2864,19 @@
                 let upcomingMatches = validFixtures.filter(m => !m.completed);
                 let next3UpcomingHtml = upcomingMatches.slice(0, 3).map(generateFixtureRowCard).join('');
                 document.getElementById("dashUpcomingRemainingContainer").innerHTML = next3UpcomingHtml || `<div class="empty-state-notice">No upcoming scheduled fixtures found.</div>`;
+
+                let seasonCard = document.getElementById("seasonChampionCard");
+                let seasonTarget = currentSeasonTarget();
+                let realTeamsForSeason = teams.filter(t => t.id !== 'dummy-bye');
+                if (isSeasonComplete()) {
+                    seasonCard.style.display = 'block';
+                    let champion = realTeamsForSeason[0];
+                    document.getElementById("championTeamName").innerText = champion ? champion.name : '';
+                    startFireworks();
+                } else {
+                    seasonCard.style.display = 'none';
+                    stopFireworks();
+                }
             }
 
             if (activeAppPageId === 'matches') {
@@ -2368,6 +2961,23 @@
                                 <div><strong>🛡️ ${t.name}</strong><div style="font-size:10px; color:var(--text-muted);">Manager: ${t.manager || 'None'}</div></div>
                                 <div class="item-action-links"><span class="action-link rename" onclick="renameTeam('${t.id}')">Modify</span><span class="action-link delete" onclick="deleteTeam('${t.id}')">Delete</span></div>
                             </li>`).join('') || `<div class="empty-state-notice">No registered club profiles found.</div>`;
+                    } else if (activeAdminSubTab === 'season') {
+                        let target = currentSeasonTarget();
+                        let realTeams = teams.filter(t => t.id !== 'dummy-bye');
+                        listEl.innerHTML = realTeams.map(t => {
+                            let played = gamesPlayedByTeam(t.id);
+                            let pct = target > 0 ? Math.min(100, Math.round((played / target) * 100)) : 0;
+                            let done = target > 0 && played >= target;
+                            return `<li class="management-item" style="display:block;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;">
+                                    <strong>${done ? '🏁 ' : ''}${t.name}</strong>
+                                    <span style="font-size:11px;color:var(--text-muted);">${played} / ${target || '—'}</span>
+                                </div>
+                                <div style="height:5px;background:#1e293b;border-radius:3px;margin-top:6px;overflow:hidden;">
+                                    <div style="height:100%;width:${pct}%;background:${done?'var(--accent-green)':'var(--accent-cyan)'};"></div>
+                                </div>
+                            </li>`;
+                        }).join('') || `<div class="empty-state-notice">No registered club profiles found.</div>`;
                     } else {
                         // Use the search filter so results stay filtered after a data refresh
                         filterAdminPlayerList();
