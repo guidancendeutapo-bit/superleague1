@@ -400,6 +400,11 @@
         .trend-up { color: var(--accent-green); }
         .trend-down { color: var(--danger-red); }
         .trend-same { color: var(--text-muted); opacity: 0.6; }
+        .relegation-badge {
+            display: inline-flex; justify-content: center; align-items: center; width: 20px; height: 20px;
+            border-radius: 4px; font-weight: bold; font-size: 11px; background-color: rgba(239, 68, 68, 0.15);
+            color: var(--danger-red); border: 1px solid rgba(239, 68, 68, 0.35); vertical-align: middle; margin-left: 4px;
+        }
         .col-center { text-align: center; }
         .col-green { color: var(--accent-green); font-weight: 700; }
 
@@ -808,6 +813,7 @@
                     <span class="notif-badge" id="newsBellBadge">0</span>
                 </div>
             </li>
+            <li class="menu-item" id="nav-records" onclick="switchAppPage('records')"><button>🏅 Season Records</button></li>
         </ul>
 
         <div class="sidebar-footer">
@@ -1054,7 +1060,47 @@
             </div>
         </div>
 
-        <!-- ADMIN CONFIG LAYER WORKSPACE -->
+        <!-- SUB-PAGE 6: SEASON RECORDS -->
+        <div id="page-records" class="app-page">
+            <!-- Admin Post Panel -->
+            <div class="card-wrapper" id="recordsAdminPostPanel" style="display:none; margin-bottom:20px;">
+                <h2>🏅 Log A Record</h2>
+                <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">Enter records broken this season — most goals in a match, fastest hat-trick, biggest win, and so on.</p>
+                <input type="hidden" id="recordEditingId">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                    <div>
+                        <label class="form-label">Record Title</label>
+                        <input type="text" id="recordTitle" class="text-field-widget" placeholder="e.g. Most Goals In A Single Match">
+                    </div>
+                    <div>
+                        <label class="form-label">Value / Achievement</label>
+                        <input type="text" id="recordValue" class="text-field-widget" placeholder="e.g. 5 goals">
+                    </div>
+                    <div>
+                        <label class="form-label">Held By (player or club)</label>
+                        <input type="text" id="recordHolder" class="text-field-widget" placeholder="e.g. Deez Nutz FC">
+                    </div>
+                    <div>
+                        <label class="form-label">Date / Match Context</label>
+                        <input type="text" id="recordContext" class="text-field-widget" placeholder="e.g. vs MPK, Matchday 7">
+                    </div>
+                </div>
+                <div style="margin-top:14px;">
+                    <label class="form-label">Notes (optional)</label>
+                    <textarea id="recordNotes" class="text-field-widget" rows="3" placeholder="Any extra detail about the record..." style="resize:vertical;"></textarea>
+                </div>
+                <div style="display:flex; gap:10px; margin-top:14px;">
+                    <button class="register-action-btn" onclick="saveRecordAction()" id="recordSaveBtn">📤 Save Record</button>
+                    <button class="register-action-btn" style="background:transparent; border:1px solid var(--border-color); color:var(--text-muted); display:none;" id="recordCancelEditBtn" onclick="cancelRecordEdit()">Cancel Edit</button>
+                </div>
+            </div>
+            <!-- Records Feed -->
+            <div class="card-wrapper">
+                <h2>🏅 Records Broken This Season</h2>
+                <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">A running log of standout individual and team achievements.</p>
+                <div id="recordsFeedContainer"><div class="empty-state-notice">No records logged yet.</div></div>
+            </div>
+        </div>
         <div class="admin-panel-card" id="adminControlPanel">
             <div class="section-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
                 <h2>🛡️ Administrative Management</h2>
@@ -1238,6 +1284,7 @@
         let allSeasons = {};
         let currentSeason = '';
         let viewingSeason = '';
+        let seasonRecords = [];
 
         function switchAppPage(pageId) {
             activeAppPageId = pageId;
@@ -1253,6 +1300,7 @@
             if(pageId === 'matches') headingText = "Match Center Fixtures";
             if(pageId === 'squads') headingText = "Club Squad Rosters";
             if(pageId === 'news') headingText = "News & Updates";
+            if(pageId === 'records') headingText = "Season Records";
             document.getElementById("pageMainHeading").innerText = headingText;
 
             if (pageId === 'squads') {
@@ -1262,6 +1310,10 @@
             if (pageId === 'news') {
                 let panel = document.getElementById("newsAdminPostPanel");
                 if (panel) panel.style.display = isAdmin ? 'block' : 'none';
+            }
+            if (pageId === 'records') {
+                let panel = document.getElementById("recordsAdminPostPanel");
+                if (panel) panel.style.display = (isAdmin && viewingSeason === currentSeason) ? 'block' : 'none';
             }
             if (pageId !== 'dash') stopFireworks();
 
@@ -1286,6 +1338,7 @@
             matches = Array.isArray(bucket.matches) ? bucket.matches : Object.values(bucket.matches || {});
             newsItems = Array.isArray(bucket.newsItems) ? bucket.newsItems : Object.values(bucket.newsItems || {});
             seasonConfig = bucket.seasonConfig && typeof bucket.seasonConfig === 'object' ? bucket.seasonConfig : { gamesPerTeam: null };
+            seasonRecords = Array.isArray(bucket.records) ? bucket.records : Object.values(bucket.records || {});
         }
 
         function seasonLabelSortDesc(a, b) {
@@ -1424,7 +1477,7 @@
                 alert("You're viewing a past season in read-only archive mode. Switch to the current season from the Season menu to make changes.");
                 return;
             }
-            allSeasons[viewingSeason] = { teams, players, matches, newsItems, seasonConfig };
+            allSeasons[viewingSeason] = { teams, players, matches, newsItems, seasonConfig, records: seasonRecords };
             db.ref('leagueData').set({ seasons: allSeasons, currentSeason: currentSeason });
         }
 
@@ -1617,10 +1670,12 @@
                     let lines = [];
                     eventsArr.forEach(e => {
                         let p = players.find(x => x.id === e.playerId);
-                        if (!p) return;
+                        let displayName = p ? p.name : (e.playerName || null);
+                        if (!displayName) return; // no way to identify who this event belongs to
                         // Use the teamId snapshotted at time of match; fall back to current teamId for old data
-                        let eventTeamId = e.teamId || p.teamId;
+                        let eventTeamId = e.teamId || (p && p.teamId) || m.homeId;
                         if (eventTeamId !== teamId) return;
+                        let departedTag = !p ? ' <span style="font-size:9px;color:var(--text-muted);font-weight:600;">(departed)</span>' : '';
                         if (e.type === 'goals') {
                             let goalsList = e.goalsList || Array.from({length: e.count||1}, (_,i) => ({
                                 scoringType: e.scoringType || 'regular',
@@ -1629,13 +1684,15 @@
                             goalsList.forEach((gl, gi) => {
                                 let penMark = gl.scoringType === 'penalty' ? ' <span style="color:var(--accent-yellow);font-size:10px;">(P)</span>' : '';
                                 let assister = gl.assistedBy ? players.find(x => x.id === gl.assistedBy) : null;
-                                let assistLine = assister ? `<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">👟 ${assister.name}</div>` : '';
-                                lines.push(`<div style="margin-bottom:6px;">⚽ <strong>${p.name}</strong>${penMark}${assistLine}</div>`);
+                                let assisterEvt = gl.assistedBy ? eventsArr.find(ev => ev.playerId === gl.assistedBy && ev.type === 'assists') : null;
+                                let assisterName = assister ? assister.name : (assisterEvt ? assisterEvt.playerName : null);
+                                let assistLine = assisterName ? `<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">👟 ${assisterName}</div>` : '';
+                                lines.push(`<div style="margin-bottom:6px;">⚽ <strong>${displayName}</strong>${penMark}${departedTag}${assistLine}</div>`);
                             });
                         }
                         if (e.type === 'ownGoals') {
                             for (let i = 0; i < (e.count||1); i++) {
-                                lines.push(`<div style="margin-bottom:6px;color:var(--danger-red);">🔴 <strong>${p.name}</strong> <span style="font-size:10px;">(OG)</span></div>`);
+                                lines.push(`<div style="margin-bottom:6px;color:var(--danger-red);">🔴 <strong>${displayName}</strong> <span style="font-size:10px;">(OG)</span>${departedTag}</div>`);
                             }
                         }
                     });
@@ -1902,6 +1959,7 @@
                 // Push goal event with full goalsList
                 m.events.push({
                     playerId: pId,
+                    playerName: scorerPlayer ? scorerPlayer.name : null, // ← locked-in name, survives player deletion
                     teamId: snapshotTeamId, // ← locked to the team at time of match
                     type: 'goals',
                     count: goals.length,
@@ -1916,7 +1974,7 @@
                         let assisterTeamId = assisterPlayer ? assisterPlayer.teamId : null;
                         let existing = m.events.find(e => e.playerId === g.assistedBy && e.type === 'assists');
                         if (existing) existing.count++;
-                        else m.events.push({ playerId: g.assistedBy, teamId: assisterTeamId, type: 'assists', count: 1 });
+                        else m.events.push({ playerId: g.assistedBy, playerName: assisterPlayer ? assisterPlayer.name : null, teamId: assisterTeamId, type: 'assists', count: 1 });
                     }
                 });
             });
@@ -1928,7 +1986,7 @@
                 if (og > 0) {
                     let ogPlayer = players.find(x => x.id === pId);
                     let ogTeamId = ogPlayer ? ogPlayer.teamId : null;
-                    m.events.push({ playerId: pId, teamId: ogTeamId, type: 'ownGoals', count: og });
+                    m.events.push({ playerId: pId, playerName: ogPlayer ? ogPlayer.name : null, teamId: ogTeamId, type: 'ownGoals', count: og });
                 }
             });
 
@@ -1944,13 +2002,28 @@
             inputName.value = ""; inputManager.value = "";
             persistDatabaseState();
         }
-        function deleteTeam(id) { if (confirm("Delete club completely?")) { teams = teams.filter(t => t.id !== id); players = players.filter(p => p.teamId !== id); persistDatabaseState(); } }
+        function deleteTeam(id) {
+            if (!confirm("Delete club completely? Players who already have recorded match stats will be kept on record as free agents so past results stay accurate — only players with no match history will be removed.")) return;
+            teams = teams.filter(t => t.id !== id);
+            // Preserve anyone with real match history by cutting their club tie rather than deleting them.
+            players.forEach(p => { if (p.teamId === id && playerHasMatchHistory(p.id)) p.teamId = null; });
+            players = players.filter(p => p.teamId !== id);
+            persistDatabaseState();
+            renderDashboardAll();
+        }
         function renameTeam(id) {
             let team = teams.find(t => t.id === id);
             let n = prompt("Enter new name:", team.name);
             let m = prompt("Enter manager name:", team.manager || "");
             if(n && n.trim()) { team.name = n.trim(); team.manager = m ? m.trim() : ""; persistDatabaseState(); }
         }
+        function playerHasMatchHistory(playerId) {
+            return matches.some(m => {
+                let eventsArr = Array.isArray(m.events) ? m.events : Object.values(m.events || {});
+                return eventsArr.some(e => e.playerId === playerId);
+            });
+        }
+
         function registerNewPlayer() {
             let nameInput = document.getElementById("playerNameInput");
             let teamSelect = document.getElementById("playerTeamSelect");
@@ -1966,7 +2039,7 @@
             document.getElementById("editPlayerId").value = p.id;
             document.getElementById("editPlayerName").value = p.name;
             let teamSel = document.getElementById("editPlayerTeam");
-            teamSel.innerHTML = teams.map(t => '<option value="' + t.id + '"' + (t.id === p.teamId ? ' selected' : '') + '>' + t.name + '</option>').join('');
+            teamSel.innerHTML = '<option value="">— Free Agent (no club) —</option>' + teams.map(t => '<option value="' + t.id + '"' + (t.id === p.teamId ? ' selected' : '') + '>' + t.name + '</option>').join('');
             document.getElementById("editPlayerModal").classList.add("active");
         }
 
@@ -1982,11 +2055,25 @@
             let p = players.find(x => x.id === id);
             if (!p) return;
             p.name   = name;
-            p.teamId = teamId;
+            p.teamId = teamId || null;
             closePlayerEditModal();
             persistDatabaseState();
         }
-        function unregisterPlayer(id) { if(confirm("Unregister player profile?")) { players = players.filter(p => p.id !== id); persistDatabaseState(); } }
+        function unregisterPlayer(id) {
+            let p = players.find(x => x.id === id);
+            if (!p) return;
+            if (playerHasMatchHistory(id)) {
+                if (!confirm(`${p.name} already has recorded match stats. Removing them from the club will keep their goals, assists and cards on record (shown as a free agent) rather than deleting them completely. Continue?`)) return;
+                p.teamId = null;
+                persistDatabaseState();
+                renderDashboardAll();
+                return;
+            }
+            if (!confirm(`Unregister ${p.name}? They have no recorded match stats, so this will remove their profile completely.`)) return;
+            players = players.filter(x => x.id !== id);
+            persistDatabaseState();
+            renderDashboardAll();
+        }
         
         function changePlayerStat(pId, type, amt) {
             let adjustMatch = matches.find(m => m.tag === "GLOBAL STAT OVERRIDE ADJUSTMENT DATA");
@@ -2001,7 +2088,8 @@
                 ev.count += amt; 
                 if(ev.count <= 0) adjustMatch.events = adjustMatch.events.filter(e => e !== ev); 
             } else if (amt > 0) { 
-                adjustMatch.events.push({ playerId: pId, type: type, count: amt, scoringType: 'regular' }); 
+                let statPlayer = players.find(x => x.id === pId);
+                adjustMatch.events.push({ playerId: pId, playerName: statPlayer ? statPlayer.name : null, teamId: statPlayer ? statPlayer.teamId : null, type: type, count: amt, scoringType: 'regular' }); 
             }
             persistDatabaseState();
         }
@@ -2477,6 +2565,84 @@
             container.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">' + cardsHtml + '</div>';
         }
 
+        function saveRecordAction() {
+            if (!isAdmin) return;
+            if (viewingSeason !== currentSeason) return alert("You're viewing a past season in read-only archive mode. Switch to the current season to log records.");
+            let title = document.getElementById("recordTitle").value.trim();
+            let value = document.getElementById("recordValue").value.trim();
+            let holder = document.getElementById("recordHolder").value.trim();
+            let context = document.getElementById("recordContext").value.trim();
+            let notes = document.getElementById("recordNotes").value.trim();
+            if (!title || !value || !holder) return alert("Please fill in the title, value and who holds the record.");
+            let editingId = document.getElementById("recordEditingId").value;
+            if (editingId) {
+                let rec = seasonRecords.find(r => r.id === editingId);
+                if (rec) Object.assign(rec, { title, value, holder, context, notes });
+            } else {
+                seasonRecords.unshift({ id: "rec" + Date.now(), title, value, holder, context, notes, date: new Date().toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) });
+            }
+            cancelRecordEdit();
+            persistDatabaseState();
+            renderRecordsPage();
+        }
+
+        function editRecordAction(id) {
+            if (!isAdmin) return;
+            let rec = seasonRecords.find(r => r.id === id);
+            if (!rec) return;
+            document.getElementById("recordEditingId").value = rec.id;
+            document.getElementById("recordTitle").value = rec.title;
+            document.getElementById("recordValue").value = rec.value;
+            document.getElementById("recordHolder").value = rec.holder;
+            document.getElementById("recordContext").value = rec.context || '';
+            document.getElementById("recordNotes").value = rec.notes || '';
+            document.getElementById("recordSaveBtn").innerText = "💾 Update Record";
+            document.getElementById("recordCancelEditBtn").style.display = "inline-block";
+            document.getElementById("recordsAdminPostPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        function cancelRecordEdit() {
+            document.getElementById("recordEditingId").value = "";
+            document.getElementById("recordTitle").value = "";
+            document.getElementById("recordValue").value = "";
+            document.getElementById("recordHolder").value = "";
+            document.getElementById("recordContext").value = "";
+            document.getElementById("recordNotes").value = "";
+            document.getElementById("recordSaveBtn").innerText = "📤 Save Record";
+            document.getElementById("recordCancelEditBtn").style.display = "none";
+        }
+
+        function deleteRecordAction(id) {
+            if (!isAdmin || !confirm("Delete this record?")) return;
+            seasonRecords = seasonRecords.filter(r => r.id !== id);
+            persistDatabaseState();
+            renderRecordsPage();
+        }
+
+        function renderRecordsPage() {
+            let container = document.getElementById("recordsFeedContainer");
+            if (!container) return;
+            let panel = document.getElementById("recordsAdminPostPanel");
+            if (panel) panel.style.display = (isAdmin && viewingSeason === currentSeason) ? 'block' : 'none';
+            if (!seasonRecords || seasonRecords.length === 0) {
+                container.innerHTML = '<div class="empty-state-notice">No records logged yet.</div>';
+                return;
+            }
+            let cardsHtml = seasonRecords.map(r => {
+                return '<div class="news-card">' +
+                    '<span class="news-category-badge" style="background:rgba(234,179,8,0.15); color:var(--accent-yellow);">🏅 RECORD</span>' +
+                    '<div class="news-card-title">' + r.title + '</div>' +
+                    '<div style="font-size:20px; font-weight:800; color:var(--accent-yellow); margin:6px 0;">' + r.value + '</div>' +
+                    '<div class="news-card-body">Held by <strong>' + r.holder + '</strong>' + (r.context ? ' — ' + r.context : '') + (r.notes ? '<br>' + r.notes.replace(/\n/g, '<br>') : '') + '</div>' +
+                    '<div class="news-card-meta">' +
+                        '<span>🗓️ ' + r.date + '</span>' +
+                        (isAdmin && viewingSeason === currentSeason ? '<span><button class="news-delete-btn" style="background:transparent;border:none;color:var(--accent-cyan);cursor:pointer;font-size:12px;margin-right:8px;" onclick="editRecordAction(\'' + r.id + '\')">✏️ Edit</button><button class="news-delete-btn" onclick="deleteRecordAction(\'' + r.id + '\')">🗑 Delete</button></span>' : '') +
+                    '</div>' +
+                '</div>';
+            }).join('');
+            container.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">' + cardsHtml + '</div>';
+        }
+
         function updateNewsBell() {
             let badge = document.getElementById("newsBellBadge");
             if (!badge) return;
@@ -2766,7 +2932,7 @@
 
                 return `<tr class="${cls}">
                     <td><span class="pos-num">${pos}${trend}</span></td>
-                    <td><strong>${t.name}${(seasonDone && pos===1) ? ' 🏆' : ''}</strong></td>
+                    <td><strong>${t.name}${(seasonDone && pos===1) ? ' <span title="Champions">🏆</span>' : ''}${(seasonDone && pos===teams.length && teams.length>1) ? ' <span class="relegation-badge" title="Relegated">R</span>' : ''}</strong></td>
                     <td class="col-center">${t.played}</td>
                     <td class="col-center">${t.won}</td>
                     <td class="col-center">${t.drawn}</td>
@@ -2801,22 +2967,24 @@
                     let eventsArr = Array.isArray(m.events) ? m.events : Object.values(m.events);
                     eventsArr.forEach(e => {
                         let p = players.find(x => x.id === e.playerId);
-                        if (!p) return;
+                        let displayName = p ? p.name : (e.playerName || null);
+                        if (!displayName) return; // no way to identify who this event belongs to
 
                         // Use the teamId snapshotted at time of match; fall back to current teamId for old data
-                        let eventTeamId = e.teamId || p.teamId;
+                        let eventTeamId = e.teamId || (p && p.teamId) || m.homeId;
+                        let departedTag = !p ? ' <span style="font-size:9px;color:var(--text-muted);">(departed)</span>' : '';
 
                         let penaltyMarker = e.scoringType === 'penalty' ? " (P)" : "";
 
                         if (e.type === 'goals') {
-                            if (eventTeamId === m.homeId) homeScorers.push(`${p.name}${penaltyMarker} (${e.count})`);
-                            else awayScorers.push(`${p.name}${penaltyMarker} (${e.count})`);
+                            if (eventTeamId === m.homeId) homeScorers.push(`${displayName}${penaltyMarker} (${e.count})${departedTag}`);
+                            else awayScorers.push(`${displayName}${penaltyMarker} (${e.count})${departedTag}`);
                         } else if (e.type === 'assists') {
-                            if (eventTeamId === m.homeId) homeAssists.push(`${p.name} (${e.count})`);
-                            else awayAssists.push(`${p.name} (${e.count})`);
+                            if (eventTeamId === m.homeId) homeAssists.push(`${displayName} (${e.count})${departedTag}`);
+                            else awayAssists.push(`${displayName} (${e.count})${departedTag}`);
                         } else if (e.type === 'ownGoals') {
-                            if (eventTeamId === m.homeId) awayScorers.push(`${p.name} (${e.count} OG)`);
-                            else homeScorers.push(`${p.name} (${e.count} OG)`);
+                            if (eventTeamId === m.homeId) awayScorers.push(`${displayName} (${e.count} OG)${departedTag}`);
+                            else homeScorers.push(`${displayName} (${e.count} OG)${departedTag}`);
                         }
                     });
                 }
@@ -2987,6 +3155,7 @@
 
             renderLeaderboardOnly();
             if (activeAppPageId === 'news') renderNewsPage();
+            if (activeAppPageId === 'records') renderRecordsPage();
             renderNewsTicker();
         }
     </script>
