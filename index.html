@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Super League</title>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         :root {
             --bg-color: #05070a;
@@ -567,46 +565,20 @@
         .leaderboard-row.top-tier-highlight { background-color: var(--gold-glow); border: 1px solid rgba(234, 179, 8, 0.3); color: var(--accent-yellow); }
 
         /* --- ADMIN CONFIG LAYER WORKSPACE --- */
-        .admin-panel-card {
-            background: linear-gradient(160deg, var(--card-bg) 0%, rgba(16,185,129,0.04) 100%);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 24px;
-            display: none;
-            box-shadow: 0 0 0 1px rgba(16,185,129,0.08), 0 12px 32px rgba(0,0,0,0.35);
-            position: relative;
-            overflow: hidden;
-        }
-        .admin-panel-card::before {
-            content: '';
-            position: absolute; top: 0; left: 0; right: 0; height: 3px;
-            background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan), var(--accent-yellow), var(--accent-green));
-            background-size: 300% 100%;
-            animation: adminRainbowSlide 6s linear infinite;
-        }
-        @keyframes adminRainbowSlide { 0% { background-position: 0% 0; } 100% { background-position: 300% 0; } }
+        .admin-panel-card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; display: none; }
         .admin-panel-card.visible { display: block; margin-top: 24px; }
-        .admin-panel-heading { display: flex; align-items: center; gap: 10px; }
-        .admin-panel-heading .shield-emoji { font-size: 24px; display: inline-block; animation: shieldWiggle 3.5s ease-in-out infinite; }
-        @keyframes shieldWiggle { 0%, 100% { transform: rotate(0deg); } 8% { transform: rotate(-8deg); } 16% { transform: rotate(8deg); } 24% { transform: rotate(0deg); } }
-        .admin-panel-tagline { font-size: 11px; color: var(--text-muted); font-weight: 600; margin-top: 2px; }
-        .panel-tab-pill-box { display: flex; background: var(--bg-color); padding: 5px; border-radius: 30px; gap: 4px; border: 1px solid var(--border-color); }
-        .pill-btn { background: transparent; border: none; color: var(--text-muted); padding: 8px 16px; font-size: 12px; font-weight: 700; cursor: pointer; border-radius: 30px; transition: all 0.2s ease; }
-        .pill-btn:hover { color: #fff; background: rgba(255,255,255,0.06); }
-        .pill-btn.active { background: linear-gradient(90deg, var(--accent-green), #06b6d4); color: #05070a; box-shadow: 0 3px 12px rgba(16,185,129,0.4); transform: scale(1.03); }
+        .panel-tab-pill-box { display: flex; background: var(--bg-color); padding: 4px; border-radius: 6px; gap: 4px; border: 1px solid var(--border-color); }
+        .pill-btn { background: transparent; border: none; color: var(--text-muted); padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; border-radius: 4px; }
+        .pill-btn.active { background: var(--accent-green); color: #000; }
         .panel-workspace-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; margin-top: 16px; }
         .form-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 6px; }
-        .text-field-widget, .select-dropdown-widget { width: 100%; background-color: var(--bg-color); border: 1.5px solid var(--border-color); border-radius: 10px; padding: 10px 12px; color: #fff; outline: none; font-size: 13px; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
-        .text-field-widget:focus, .select-dropdown-widget:focus { border-color: var(--accent-green); box-shadow: 0 0 0 3px rgba(16,185,129,0.15); }
-        .register-action-btn { width: 100%; background: linear-gradient(90deg, var(--accent-green), #06b6d4); color: #05070a; border: none; padding: 13px; border-radius: 30px; font-weight: 800; font-size: 13px; cursor: pointer; margin-top: 4px; box-shadow: 0 4px 14px rgba(16,185,129,0.3); transition: transform 0.15s ease, box-shadow 0.15s ease; }
-        .register-action-btn:hover { transform: translateY(-2px) scale(1.015); box-shadow: 0 8px 20px rgba(16,185,129,0.45); }
-        .register-action-btn:active { transform: translateY(0) scale(0.99); }
+        .text-field-widget, .select-dropdown-widget { width: 100%; background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px 12px; color: #fff; outline: none; font-size: 13px; }
+        .register-action-btn { width: 100%; background-color: var(--accent-green); color: #000; border: none; padding: 12px; border-radius: 6px; font-weight: 700; cursor: pointer; margin-top: 4px; }
         .management-list { list-style: none; max-height: 220px; overflow-y: auto; }
-        .management-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: var(--bg-color); border-radius: 10px; margin-bottom: 8px; border: 1px solid var(--border-color); border-left: 3px solid var(--accent-green); font-size: 13px; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
-        .management-item:hover { transform: translateX(3px); box-shadow: 0 4px 14px rgba(0,0,0,0.25); border-left-color: var(--accent-cyan); }
+        .management-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--bg-color); border-radius: 6px; margin-bottom: 8px; border: 1px solid var(--border-color); font-size: 13px; }
         .item-action-links { display: flex; gap: 12px; font-size: 11px; }
-        .action-link.rename { color: var(--accent-cyan); cursor: pointer; font-weight: 700; }
-        .action-link.delete { color: var(--danger-red); cursor: pointer; font-weight: 700; }
+        .action-link.rename { color: var(--accent-cyan); cursor: pointer; }
+        .action-link.delete { color: var(--danger-red); cursor: pointer; }
         .modifier-controls { display: flex; align-items: center; gap: 4px; }
         .stat-badge-info { font-size: 10px; color: var(--text-muted); background: var(--card-bg); padding: 2px 4px; border-radius: 4px; }
         .modifier-btn { width: 18px; height: 18px; border-radius: 4px; border: none; background: #1e293b; color: #fff; font-size: 11px; cursor: pointer; }
@@ -1131,19 +1103,13 @@
             </div>
         </div>
         <div class="admin-panel-card" id="adminControlPanel">
-            <div class="section-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 16px;">
-                <div class="admin-panel-heading">
-                    <span class="shield-emoji">🛡️</span>
-                    <div>
-                        <h2 style="margin:0;">Administrative Management</h2>
-                        <div class="admin-panel-tagline">✨ Your command center — run the league like a boss.</div>
-                    </div>
-                </div>
+            <div class="section-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
+                <h2>🛡️ Administrative Management</h2>
                 <div class="panel-tab-pill-box">
-                    <button class="pill-btn active" id="subTabTeams" onclick="switchAdminSubTab('teams')">🏟️ Clubs Roster</button>
-                    <button class="pill-btn" id="subTabPlayers" onclick="switchAdminSubTab('players')">🧑‍🤝‍🧑 Players Registry</button>
-                    <button class="pill-btn" id="subTabSeason" onclick="switchAdminSubTab('season')">📅 Season Settings</button>
-                    <button class="pill-btn" id="subTabBranding" onclick="switchAdminSubTab('branding')">🎨 League Branding</button>
+                    <button class="pill-btn active" id="subTabTeams" onclick="switchAdminSubTab('teams')">Clubs Roster</button>
+                    <button class="pill-btn" id="subTabPlayers" onclick="switchAdminSubTab('players')">Players Registry</button>
+                    <button class="pill-btn" id="subTabSeason" onclick="switchAdminSubTab('season')">Season Settings</button>
+                    <button class="pill-btn" id="subTabBranding" onclick="switchAdminSubTab('branding')">League Branding</button>
                 </div>
             </div>
             <div class="panel-workspace-grid">
@@ -1224,11 +1190,6 @@
             <div class="modal-title" id="scoreModalTitle">Match Report Sheet</div>
             <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">Enter goals scored per player, then link the assister for each goal.</p>
             <div style="display:flex; gap:16px; margin-bottom:16px;" id="modalScoreInputsRow"></div>
-            <input type="text" id="goalEntryPlayerSearch" class="text-field-widget" placeholder="🔍 Search for a player by name..." oninput="filterGoalEntryPlayers()" style="margin-bottom:14px;">
-            <div id="goalEntrySearchHint" style="display:none; text-align:center; padding:24px 12px; color:var(--text-muted); font-size:13px; background:var(--bg-color); border:1px dashed var(--border-color); border-radius:8px; margin-bottom:14px;">
-                🔎 Start typing a player's name above to add their goals.<br>
-                <span style="font-size:11px;">Players who already have goals recorded for this match will always show here.</span>
-            </div>
             <div id="modalGoalEntrySection"></div>
             <button class="authorize-btn" id="btnSaveScoreRecord" onclick="saveMatchEventsData()">💾 Save Match Records</button>
         </div>
@@ -1292,6 +1253,8 @@
         </span>
     </button>
 
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
         // --- DATABASE ROUTER CONFIGURATION ---
         const firebaseConfig = {
@@ -1689,36 +1652,23 @@
             renderMiniLeaderboardWidgets();
         }
 
-        function getTiedLeaders(list, statKey) {
-            if (!list.length) return { value: 0, leaders: [] };
-            let maxVal = Math.max(...list.map(p => p[statKey] || 0));
-            let leaders = list.filter(p => (p[statKey] || 0) === maxVal);
-            return { value: maxVal, leaders };
-        }
-
         function renderMiniLeaderboardWidgets() {
-            let scorerTie = getTiedLeaders(players, 'goals');
-            let assistTie = getTiedLeaders(players, 'assists');
+            let topScorer = [...players].sort((a,b) => b.goals - a.goals || b.assists - a.assists)[0];
+            let topAssistor = [...players].sort((a,b) => b.assists - a.assists || b.goals - a.goals)[0];
 
-            if (scorerTie.value > 0 && scorerTie.leaders.length) {
-                let names = scorerTie.leaders.map(p => p.name).join(', ');
-                document.getElementById("dashTopScorerName").innerText = names;
-                let statText = scorerTie.leaders.length === 1
-                    ? `${scorerTie.value} Goals (${teams.find(t => t.id === scorerTie.leaders[0].teamId)?.name || 'Club'})`
-                    : `${scorerTie.value} Goals each · ${scorerTie.leaders.length} players tied`;
-                document.getElementById("dashTopScorerStat").innerText = statText;
+            if(topScorer && topScorer.goals > 0) {
+                let tName = teams.find(t => t.id === topScorer.teamId)?.name || 'Club';
+                document.getElementById("dashTopScorerName").innerText = topScorer.name;
+                document.getElementById("dashTopScorerStat").innerText = `${topScorer.goals} Goals (${tName})`;
             } else {
                 document.getElementById("dashTopScorerName").innerText = "No Records Yet";
                 document.getElementById("dashTopScorerStat").innerText = "0 Goals";
             }
 
-            if (assistTie.value > 0 && assistTie.leaders.length) {
-                let names = assistTie.leaders.map(p => p.name).join(', ');
-                document.getElementById("dashTopAssistorName").innerText = names;
-                let statText = assistTie.leaders.length === 1
-                    ? `${assistTie.value} Assists (${teams.find(t => t.id === assistTie.leaders[0].teamId)?.name || 'Club'})`
-                    : `${assistTie.value} Assists each · ${assistTie.leaders.length} players tied`;
-                document.getElementById("dashTopAssistorStat").innerText = statText;
+            if(topAssistor && topAssistor.assists > 0) {
+                let tName = teams.find(t => t.id === topAssistor.teamId)?.name || 'Club';
+                document.getElementById("dashTopAssistorName").innerText = topAssistor.name;
+                document.getElementById("dashTopAssistorStat").innerText = `${topAssistor.assists} Assists (${tName})`;
             } else {
                 document.getElementById("dashTopAssistorName").innerText = "No Records Yet";
                 document.getElementById("dashTopAssistorStat").innerText = "0 Assists";
@@ -1863,15 +1813,11 @@
             
             let tPlayers = players.filter(p => p.teamId === teamId);
             
-            let clubScorerTie = getTiedLeaders(tPlayers, 'goals');
-            let clubAssistTie = getTiedLeaders(tPlayers, 'assists');
+            let clubTopScorer = [...tPlayers].sort((a,b) => b.goals - a.goals || b.assists - a.assists)[0];
+            let clubTopAssistor = [...tPlayers].sort((a,b) => b.assists - a.assists || b.goals - a.goals)[0];
 
-            document.getElementById("clubPopupTopScorer").innerText = clubScorerTie.value > 0
-                ? `${clubScorerTie.leaders.map(p => p.name).join(', ')} (${clubScorerTie.value} G)`
-                : "None Registered";
-            document.getElementById("clubPopupTopAssistor").innerText = clubAssistTie.value > 0
-                ? `${clubAssistTie.leaders.map(p => p.name).join(', ')} (${clubAssistTie.value} A)`
-                : "None Registered";
+            document.getElementById("clubPopupTopScorer").innerText = (clubTopScorer && clubTopScorer.goals > 0) ? `${clubTopScorer.name} (${clubTopScorer.goals} G)` : "None Registered";
+            document.getElementById("clubPopupTopAssistor").innerText = (clubTopAssistor && clubTopAssistor.assists > 0) ? `${clubTopAssistor.name} (${clubTopAssistor.assists} A)` : "None Registered";
 
             let rosterHtml = tPlayers.map(p => {
                 return `<li><span>👤 <strong>${p.name}</strong></span><small style="color:var(--accent-cyan); font-weight:600;">${p.goals} G / ${p.assists} A</small></li>`;
@@ -1941,8 +1887,6 @@
             window._scoreModalAllPlayers  = [...window._scoreModalHomePlayers, ...window._scoreModalAwayPlayers];
 
             rebuildGoalEntrySection();
-            let searchBox = document.getElementById("goalEntryPlayerSearch");
-            if (searchBox) searchBox.value = "";
             document.getElementById("scoreLoggerModal").classList.add("active");
         }
 
@@ -2015,7 +1959,7 @@
                         </div>
                         ${goalRows}`;
 
-                    return `<div class="goal-entry-player-block" data-player-name="${p.name.toLowerCase()}" data-has-goals="${(goals.length > 0 || og > 0) ? '1' : '0'}">${goalCountRow}</div>`;
+                    return goalCountRow;
                 }).join('');
 
                 return `
@@ -2035,34 +1979,6 @@
             document.getElementById("modalGoalEntrySection").innerHTML =
                 makePlayerSection(homePlayers, hName, 'home', homeGoals) +
                 makePlayerSection(awayPlayers, aName, 'away', awayGoals);
-
-            filterGoalEntryPlayers();
-        }
-
-        function filterGoalEntryPlayers() {
-            let term = (document.getElementById("goalEntryPlayerSearch")?.value || "").toLowerCase().trim();
-            let section = document.getElementById("modalGoalEntrySection");
-            if (!section) return;
-
-            let anyVisibleTotal = 0;
-            section.querySelectorAll(".goal-entry-player-block").forEach(block => {
-                let name = block.getAttribute("data-player-name") || "";
-                let hasGoals = block.getAttribute("data-has-goals") === "1";
-                let show = term ? name.includes(term) : hasGoals;
-                block.style.display = show ? "" : "none";
-                if (show) anyVisibleTotal++;
-            });
-
-            // Hide a team's section heading + empty-state message entirely if every player in it is filtered out
-            section.querySelectorAll(":scope > div").forEach(teamSection => {
-                let blocks = teamSection.querySelectorAll(".goal-entry-player-block");
-                if (blocks.length === 0) return;
-                let anyVisible = Array.from(blocks).some(b => b.style.display !== "none");
-                teamSection.style.display = anyVisible ? "" : "none";
-            });
-
-            let hint = document.getElementById("goalEntrySearchHint");
-            if (hint) hint.style.display = (anyVisibleTotal === 0) ? "block" : "none";
         }
 
         function onPlayerGoalCountChange(input) {
@@ -2152,6 +2068,7 @@
             });
 
             persistDatabaseState();
+            renderDashboardAll();
             closeScoreModal();
         }
 
@@ -2162,6 +2079,7 @@
             teams.push({ id: "t" + Date.now(), name: inputName.value.trim(), manager: inputManager.value.trim(), played:0, won:0, drawn:0, lost:0, gf:0, ga:0, gd:0, pts:0 });
             inputName.value = ""; inputManager.value = "";
             persistDatabaseState();
+            renderDashboardAll();
         }
         function deleteTeam(id) {
             if (!confirm("Delete club completely? Players who already have recorded match stats will be kept on record as free agents so past results stay accurate — only players with no match history will be removed.")) return;
@@ -2176,7 +2094,7 @@
             let team = teams.find(t => t.id === id);
             let n = prompt("Enter new name:", team.name);
             let m = prompt("Enter manager name:", team.manager || "");
-            if(n && n.trim()) { team.name = n.trim(); team.manager = m ? m.trim() : ""; persistDatabaseState(); }
+            if(n && n.trim()) { team.name = n.trim(); team.manager = m ? m.trim() : ""; persistDatabaseState(); renderDashboardAll(); }
         }
         function playerHasMatchHistory(playerId) {
             return matches.some(m => {
@@ -2192,6 +2110,7 @@
             players.push({ id: "p" + Date.now(), name: nameInput.value.trim(), teamId: teamSelect.value, goals: 0, assists: 0, ownGoals: 0 });
             nameInput.value = "";
             persistDatabaseState();
+            renderDashboardAll();
         }
 
         function openPlayerEditModal(playerId) {
@@ -2219,6 +2138,7 @@
             p.teamId = teamId || null;
             closePlayerEditModal();
             persistDatabaseState();
+            renderDashboardAll();
         }
         function unregisterPlayer(id) {
             let p = players.find(x => x.id === id);
@@ -2253,6 +2173,7 @@
                 adjustMatch.events.push({ playerId: pId, playerName: statPlayer ? statPlayer.name : null, teamId: statPlayer ? statPlayer.teamId : null, type: type, count: amt, scoringType: 'regular' }); 
             }
             persistDatabaseState();
+            renderDashboardAll();
         }
 
         function defaultDoubleRoundRobinLength() {
@@ -2505,8 +2426,9 @@
             matches.push({ id: "m-man-" + Date.now(), tag, homeId, awayId, homeScore: null, awayScore: null, completed: false, events: [] });
             toggleManualMatchModal(false);
             persistDatabaseState();
+            renderDashboardAll();
         }
-        function deleteFixtureRecord(id) { if(confirm("Wipe scheduled fixture profile?")) { matches = matches.filter(m => m.id !== id); persistDatabaseState(); } }
+        function deleteFixtureRecord(id) { if(confirm("Wipe scheduled fixture profile?")) { matches = matches.filter(m => m.id !== id); persistDatabaseState(); renderDashboardAll(); } }
         function setMatchFilter(t) { matchFilterState = t; document.querySelectorAll(".filter-btn-group button").forEach(b => b.classList.remove("active")); event.currentTarget.classList.add("active"); renderDashboardAll(); }
         function switchLeaderboardTab(t) { activeLeaderboardTab = t; document.querySelectorAll("#leadTabs .tab-btn").forEach(b => b.classList.remove("active")); event.currentTarget.classList.add("active"); renderLeaderboardOnly(); }
         function switchAdminSubTab(t) { activeAdminSubTab = t; switchAdminSubTabDesignRender(); }
