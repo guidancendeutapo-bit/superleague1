@@ -239,6 +239,19 @@
             }
 
             if (!viewingSeason || !allSeasons[viewingSeason]) viewingSeason = currentSeason;
+
+            // Safety net: if currentSeason itself doesn't match any real key in the
+            // database (typo, stale label, manual edit, etc.), don't silently show an
+            // empty dashboard — fall back to whatever season actually exists.
+            if (!allSeasons[viewingSeason]) {
+                const availableLabels = Object.keys(allSeasons);
+                if (availableLabels.length) {
+                    availableLabels.sort(seasonLabelSortDesc);
+                    viewingSeason = availableLabels[0];
+                    currentSeason = viewingSeason;
+                }
+            }
+
             pointWorkingVarsToSeason(viewingSeason);
             updateWeekendDropdownOptions();
             renderSeasonSelectorOptions();
