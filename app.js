@@ -1,17 +1,7 @@
 // --- DATABASE ROUTER CONFIGURATION ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyDS9quu-rckjxBMW-vuhx1NFPHeZmfs-3E",
-            authDomain: "super-league-3fc14.firebaseapp.com",
-            projectId: "super-league-3fc14",
-            storageBucket: "super-league-3fc14.firebasestorage.app",
-            messagingSenderId: "1085392011537",
-            appId: "1:1085392011537:web:a35388bd2386fcb9a2ccb0",
-            measurementId: "G-00SSJ5W0VH",
-            databaseURL: "https://super-league-3fc14-default-rtdb.firebaseio.com"
-        };
-
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+        const SUPABASE_URL = "https://lmvqlkynafaqtwxwzkfn.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxtdnFsa3luYWZhcXR3eHd6a2ZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1NDU4NTIsImV4cCI6MjEwMTEyMTg1Mn0.Cg_GgTqyMr2mpidcbD53NpyfymH0PhTDTlwQPnJrulo";
+        const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let teams = [];
         let players = [];
@@ -174,69 +164,24 @@
         }
         function jumpToCurrentSeason() { selectSeason(currentSeason); }
 
-        db.ref('leagueData').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (!data) return;
+        async function loadAppDataFromSupabase() {
+            const { data: seasonRows, error: seasonsErr } = await db.from('seasons').select('label, data');
+            const { data: stateRow, error: stateErr } = await db.from('app_state').select('*').eq('id', 1).maybeSingle();
 
-            if (data.seasons && typeof data.seasons === 'object') {
-                // Already in multi-season format.
-                allSeasons = data.seasons;
-                currentSeason = (data.currentSeason && allSeasons[data.currentSeason]) ? data.currentSeason : Object.keys(allSeasons)[0];
-            } else if (data.teams || data.players || data.matches || data.newsItems) {
-                // ── One-time migration: wrap legacy single-season data into the new format ──
-                let legacyTeams = Array.isArray(data.teams) ? data.teams : Object.values(data.teams || {});
-                let legacyPlayers = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
-                let legacyMatches = Array.isArray(data.matches) ? data.matches : Object.values(data.matches || {});
-                let legacyNews = Array.isArray(data.newsItems) ? data.newsItems : Object.values(data.newsItems || {});
-                let legacySeasonConfig = data.seasonConfig && typeof data.seasonConfig === 'object' ? data.seasonConfig : { gamesPerTeam: null };
+            if (seasonsErr) { console.error('Failed to load seasons:', seasonsErr); return; }
+            if (stateErr) { console.error('Failed to load app_state:', stateErr); return; }
 
-                // ── Migrate all old fixture tags → MATCHDAY N (one-time, legacy data only) ──
-                try {
-                    var mdTagPattern  = new RegExp('^MATCHDAY\\s+\\d+$', 'i');
-                    var mdNumPattern  = new RegExp('MATCHDAY\\s+(\\d+)', 'i');
-                    var oldNumPattern = new RegExp('(?:GAME|ROUND)\\s+(\\d+)', 'i');
-                    var tagToMd = {};
-                    var mdCounter = 1;
-                    var tagOrder = [];
-                    legacyMatches.forEach(function(m) {
-                        if (m.tag && m.tag !== 'GLOBAL STAT OVERRIDE ADJUSTMENT DATA' && !tagToMd.hasOwnProperty(m.tag)) {
-                            tagOrder.push(m.tag);
-                            tagToMd[m.tag] = null;
-                        }
-                    });
-                    tagOrder.forEach(function(tag) {
-                        if (mdTagPattern.test(tag)) {
-                            var mn = tag.match(mdNumPattern);
-                            var n = mn ? parseInt(mn[1]) : mdCounter;
-                            tagToMd[tag] = 'MATCHDAY ' + n;
-                            mdCounter = Math.max(mdCounter, n + 1);
-                        } else if (oldNumPattern.test(tag)) {
-                            var on = tag.match(oldNumPattern);
-                            var n2 = on ? parseInt(on[1]) : mdCounter;
-                            tagToMd[tag] = 'MATCHDAY ' + n2;
-                            mdCounter = Math.max(mdCounter, n2 + 1);
-                        } else {
-                            tagToMd[tag] = 'MATCHDAY ' + mdCounter++;
-                        }
-                    });
-                    legacyMatches = legacyMatches.map(function(m) {
-                        if (m.tag && tagToMd[m.tag]) return Object.assign({}, m, { tag: tagToMd[m.tag] });
-                        return m;
-                    });
-                } catch(migErr) { console.warn('Tag migration error:', migErr); }
+            allSeasons = {};
+            (seasonRows || []).forEach(row => { allSeasons[row.label] = row.data; });
 
-                let defaultLabel = computeDefaultSeasonLabel();
-                allSeasons = {};
-                allSeasons[defaultLabel] = {
-                    teams: legacyTeams, players: legacyPlayers, matches: legacyMatches,
-                    newsItems: legacyNews, seasonConfig: legacySeasonConfig
-                };
-                currentSeason = defaultLabel;
-                // Persist the migrated structure immediately so future loads use the new format.
-                db.ref('leagueData').set({ seasons: allSeasons, currentSeason: currentSeason });
-            } else {
-                return;
-            }
+            if (Object.keys(allSeasons).length === 0) return; // nothing seeded yet
+
+            currentSeason = (stateRow && stateRow.current_season && allSeasons[stateRow.current_season])
+                ? stateRow.current_season
+                : Object.keys(allSeasons)[0];
+
+            leagueBranding = (stateRow && stateRow.league_branding) ? stateRow.league_branding : { icon: null };
+            renderLeagueBranding();
 
             if (!viewingSeason || !allSeasons[viewingSeason]) viewingSeason = currentSeason;
 
@@ -257,33 +202,51 @@
             renderSeasonSelectorOptions();
             updateHistoricalBanner();
             renderDashboardAll();
-        });
+        }
 
-        function persistDatabaseState() {
+        loadAppDataFromSupabase();
+
+        // Realtime: whenever seasons or app_state change (from this tab or any other
+        // fan/admin's tab), just reload everything — simplest and safest given how
+        // small this dataset is, and matches Firebase's original "send the whole
+        // node on every change" behavior.
+        db.channel('league-data-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'seasons' }, loadAppDataFromSupabase)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state' }, loadAppDataFromSupabase)
+            .subscribe();
+
+        async function persistDatabaseState() {
             if (viewingSeason !== currentSeason) {
                 alert("You're viewing a past season in read-only archive mode. Switch to the current season from the Season menu to make changes.");
                 return;
             }
             allSeasons[viewingSeason] = { teams, players, matches, newsItems, seasonConfig, records: seasonRecords };
-            db.ref('leagueData').set({ seasons: allSeasons, currentSeason: currentSeason });
+            const { error } = await db.from('seasons').upsert({ label: viewingSeason, data: allSeasons[viewingSeason] });
+            if (error) { console.error('Failed to save season data:', error); alert('Something went wrong saving — check your connection and try again.'); return; }
+            await db.from('app_state').upsert({ id: 1, current_season: currentSeason });
         }
 
-        // Separate top-level path so concurrent celebration clicks never race
-        // against unrelated leagueData writes (which overwrite the whole node).
-        // Structure: celebrationClicks/{seasonLabel}/{teamId} = count
-        db.ref('celebrationClicks').on('value', (snapshot) => {
-            celebrationClicks = snapshot.val() || {};
+        // Celebration click counts, kept in the same {seasonLabel: {teamId: count}}
+        // shape the rest of the app already expects, just sourced from Supabase now.
+        async function loadCelebrationClicks() {
+            const { data: rows, error } = await db.from('celebration_clicks').select('*');
+            if (error) { console.error('Failed to load celebration clicks:', error); return; }
+            const rebuilt = {};
+            (rows || []).forEach(row => {
+                if (!rebuilt[row.season_label]) rebuilt[row.season_label] = {};
+                rebuilt[row.season_label][row.team_id] = row.count;
+            });
+            celebrationClicks = rebuilt;
             updateCelebrateButton();
-        });
+        }
+        loadCelebrationClicks();
+        db.channel('celebration-clicks-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'celebration_clicks' }, loadCelebrationClicks)
+            .subscribe();
 
-        // League icon lives on its own path too, so uploading it never risks
-        // clobbering (or being clobbered by) an in-flight leagueData save.
-        db.ref('leagueBranding').on('value', (snapshot) => {
-            leagueBranding = snapshot.val() || { icon: null };
-            renderLeagueBranding();
-        });
-        function persistLeagueBranding() {
-            db.ref('leagueBranding').set(leagueBranding);
+        async function persistLeagueBranding() {
+            const { error } = await db.from('app_state').upsert({ id: 1, league_branding: leagueBranding, current_season: currentSeason });
+            if (error) { console.error('Failed to save league branding:', error); alert('Something went wrong saving the icon — check your connection and try again.'); }
         }
         function renderLeagueBranding() {
             let crest = document.getElementById("leagueLogoCrest");
@@ -1005,16 +968,19 @@
             alert("✅ Season length updated. The system will track progress toward this target and stop auto-generating fixtures once every club reaches it.");
         }
 
-        function updateCurrentSeasonLabel() {
+        async function updateCurrentSeasonLabel() {
             let raw = document.getElementById("currentSeasonLabelInput").value.trim();
             if (!raw) return alert("Enter a season label, e.g. 2026-27");
             if (raw === currentSeason) return;
             if (allSeasons[raw]) return alert('A season labeled "' + raw + '" already exists. Choose a different label, or browse that season from the Season menu.');
+            let oldLabel = currentSeason;
             allSeasons[raw] = allSeasons[currentSeason];
             delete allSeasons[currentSeason];
             currentSeason = raw;
             viewingSeason = raw;
-            db.ref('leagueData').set({ seasons: allSeasons, currentSeason: currentSeason });
+            await db.from('seasons').insert({ label: raw, data: allSeasons[raw] });
+            await db.from('seasons').delete().eq('label', oldLabel);
+            await db.from('app_state').upsert({ id: 1, current_season: currentSeason });
             renderSeasonSelectorOptions();
             updateHistoricalBanner();
             switchAdminSubTabDesignRender();
@@ -1048,7 +1014,7 @@
             currentSeason = raw;
             viewingSeason = raw;
             pointWorkingVarsToSeason(raw);
-            db.ref('leagueData').set({ seasons: allSeasons, currentSeason: currentSeason });
+            saveLeagueData();
             renderSeasonSelectorOptions();
             updateHistoricalBanner();
             updateWeekendDropdownOptions();
@@ -1792,12 +1758,13 @@
             markCelebratedSeason(viewingSeason, champion.id);
 
             // Optimistic local bump so the click feels instant, then sync via
-            // an atomic transaction so simultaneous clicks from other fans
+            // an atomic RPC call so simultaneous clicks from other fans
             // never clobber each other.
             if (!celebrationClicks[viewingSeason]) celebrationClicks[viewingSeason] = {};
             celebrationClicks[viewingSeason][champion.id] = (celebrationClicks[viewingSeason][champion.id] || 0) + 1;
             updateCelebrateButton();
-            db.ref('celebrationClicks/' + viewingSeason + '/' + champion.id).transaction(current => (current || 0) + 1);
+            db.rpc('increment_celebration', { p_season: viewingSeason, p_team: champion.id })
+                .then(({ error }) => { if (error) console.error('Failed to save celebration click:', error); });
         }
 
 
