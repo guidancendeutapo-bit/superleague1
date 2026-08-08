@@ -4,6 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Super League</title>
+
+    <!-- PWA: installability, icon, theming -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0b1220">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
+    <link rel="apple-touch-icon" href="icons/icon-180.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Super League">
+    <meta name="mobile-web-app-capable" content="yes">
+
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -517,5 +529,16 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="app.js"></script>
+    <script>
+        // Register the service worker so the app is installable and opens instantly
+        // on repeat visits. Safe no-op if the browser doesn't support it.
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch((err) => {
+                    console.warn('Service worker registration failed:', err);
+                });
+            });
+        }
+    </script>
 </body>
 </html>
