@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Cup</title>
+    <link rel="stylesheet" href="supercup.css">
+    <!-- Firebase deferred -->
+    <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script defer src="supercup.js"></script>
+</head>
+<body>
+
+    <!-- TOP NAV BAR -->
+    <header class="sc-top-bar">
+        <div class="sc-brand">
+            <div class="sc-trophy-icon">🏆</div>
+            <div class="sc-brand-text">
+                <span class="sc-brand-title">SUPER CUP</span>
+                <span class="sc-brand-sub">Knockout Tournament</span>
+            </div>
+        </div>
+        <nav class="sc-nav-buttons">
+            <button class="sc-nav-btn active" id="scNavBracket" onclick="scSwitchView('bracket')">⚔️ Bracket</button>
+            <button class="sc-nav-btn" id="scNavStats" onclick="scSwitchView('stats')">📊 Stats</button>
+            <button class="sc-nav-btn" id="scNavNews" onclick="scSwitchView('news')">📰 News</button>
+            <button class="sc-nav-btn sc-admin-btn" id="scAdminToggle" onclick="scHandleAuth()">🔐 Admin</button>
+            <a href="index.html" class="sc-nav-btn sc-home-btn">🏠 Home</a>
+        </nav>
+    </header>
+
+    <!-- ADMIN LOGIN MODAL -->
+    <div class="sc-modal-overlay" id="scAuthModal">
+        <div class="sc-modal-box">
+            <button class="sc-close-btn" onclick="scCloseAuthModal()">×</button>
+            <div class="sc-modal-title">Admin Login</div>
+            <p class="sc-modal-desc">Enter the admin password to manage the Super Cup.</p>
+            <input type="password" id="scPasswordInput" class="sc-text-input" placeholder="Password" onkeydown="if(event.key==='Enter')scValidateAdmin()">
+            <button class="sc-primary-btn" onclick="scValidateAdmin()">Login</button>
+        </div>
+    </div>
+
+    <!-- ADMIN SQUAD MANAGEMENT MODAL -->
+    <div class="sc-modal-overlay" id="scSquadModal">
+        <div class="sc-modal-box" style="width:520px;">
+            <button class="sc-close-btn" onclick="scCloseSquadModal()">×</button>
+            <div class="sc-modal-title" id="scSquadModalTitle">Squad Management</div>
+
+            <!-- Add team section -->
+            <div id="scAddTeamSection">
+                <div class="sc-form-row">
+                    <input type="text" id="scNewTeamName" class="sc-text-input" placeholder="Team name">
+                    <button class="sc-primary-btn" onclick="scAddTeam()">+ Add Team</button>
+                </div>
+                <div class="sc-team-list" id="scTeamList"></div>
+            </div>
+
+            <!-- Add player section -->
+            <div style="margin-top:16px; border-top:1px solid rgba(255,255,255,0.1); padding-top:16px;">
+                <div style="font-size:13px; font-weight:700; color:#fbbf24; margin-bottom:10px; text-transform:uppercase; letter-spacing:1px;">Register Player</div>
+                <div class="sc-form-row">
+                    <input type="text" id="scNewPlayerName" class="sc-text-input" placeholder="Player name">
+                    <select id="scNewPlayerTeam" class="sc-select-input"></select>
+                    <button class="sc-primary-btn" onclick="scAddPlayer()">+ Add</button>
+                </div>
+                <div class="sc-player-list" id="scPlayerList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LEG SELECTOR MODAL -->
+    <div class="sc-modal-overlay" id="scLegModal">
+        <div class="sc-modal-box" style="width:460px;">
+            <button class="sc-close-btn" onclick="scCloseLegModal()">×</button>
+            <div class="sc-modal-title" id="scLegModalTitle">Match Details</div>
+            <div id="scLegModalBody"></div>
+        </div>
+    </div>
+
+    <!-- SCORE ENTRY MODAL -->
+    <div class="sc-modal-overlay" id="scScoreModal">
+        <div class="sc-modal-box" style="width:640px; max-height:88vh; overflow-y:auto;">
+            <button class="sc-close-btn" onclick="scCloseScoreModal()">×</button>
+            <div class="sc-modal-title" id="scScoreModalTitle">Enter Score</div>
+            <div id="scScoreModalBody"></div>
+        </div>
+    </div>
+
+    <!-- NEWS DETAIL MODAL -->
+    <div class="sc-modal-overlay" id="scNewsDetailModal">
+        <div class="sc-modal-box" style="width:500px;">
+            <button class="sc-close-btn" onclick="scCloseNewsDetail()">×</button>
+            <div id="scNewsDetailBody"></div>
+        </div>
+    </div>
+
+    <!-- NEWS POST MODAL (admin) -->
+    <div class="sc-modal-overlay" id="scNewsPostModal">
+        <div class="sc-modal-box" style="width:500px;">
+            <button class="sc-close-btn" onclick="scCloseNewsPostModal()">×</button>
+            <div class="sc-modal-title">Post Cup News</div>
+            <input type="text" id="scNewsHeadline" class="sc-text-input" placeholder="Headline" style="margin-bottom:10px;">
+            <textarea id="scNewsBody" class="sc-text-input" rows="4" placeholder="Full news story..." style="margin-bottom:10px; resize:vertical;"></textarea>
+            <button class="sc-primary-btn" onclick="scPublishNews()">📤 Publish</button>
+        </div>
+    </div>
+
+    <!-- SQUAD POPUP MODAL (view players) -->
+    <div class="sc-modal-overlay" id="scSquadPopupModal">
+        <div class="sc-modal-box" style="width:460px;">
+            <button class="sc-close-btn" onclick="scCloseSquadPopup()">×</button>
+            <div class="sc-modal-title" id="scSquadPopupTitle">Squad</div>
+            <ul class="sc-squad-popup-list" id="scSquadPopupList"></ul>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="sc-main">
+
+        <!-- BRACKET VIEW -->
+        <div class="sc-view active" id="scViewBracket">
+            <div class="sc-bracket-header">
+                <h1 class="sc-page-title">🏆 Tournament Bracket</h1>
+                <button class="sc-action-btn" id="scManageSquadsBtn" style="display:none;" onclick="scOpenSquadModal()">⚙️ Manage Squads</button>
+                <button class="sc-action-btn" id="scGenBracketBtn" style="display:none;" onclick="scGenerateBracket()">⚡ Generate Bracket</button>
+            </div>
+            <div id="scBracketContainer"></div>
+        </div>
+
+        <!-- STATS VIEW -->
+        <div class="sc-view" id="scViewStats">
+            <h1 class="sc-page-title">📊 Cup Statistics</h1>
+            <div class="sc-stats-grid">
+                <div class="sc-stats-card">
+                    <h2>🔥 Top Scorers</h2>
+                    <div id="scTopScorers"></div>
+                </div>
+                <div class="sc-stats-card">
+                    <h2>👟 Top Assists</h2>
+                    <div id="scTopAssists"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEWS VIEW -->
+        <div class="sc-view" id="scViewNews">
+            <div class="sc-bracket-header">
+                <h1 class="sc-page-title">📰 Cup News</h1>
+                <button class="sc-action-btn" id="scPostNewsBtn" style="display:none;" onclick="scOpenNewsPostModal()">+ Post News</button>
+            </div>
+            <div id="scNewsContainer"></div>
+        </div>
+
+    </main>
+
+</body>
+</html>
