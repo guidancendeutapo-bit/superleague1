@@ -1,862 +1,975 @@
 // ===================================================================
 // SUPER CUP — supercup.js
-// Knockout tournament bracket management.
+// Knockout tournament with two-legged ties, aggregate scores, bracket,
+// third-place playoff, stats, news, and admin management.
 // ===================================================================
 
-const scFirebaseConfig = {
+// --- FIREBASE CONFIG (shared with main Super League) ---
+const firebaseConfig = {
     apiKey: "AIzaSyDS9quu-rckjxBMW-vuhx1NFPHeZmfs-3E",
     authDomain: "super-league-3fc14.firebaseapp.com",
     projectId: "super-league-3fc14",
     storageBucket: "super-league-3fc14.firebasestorage.app",
-    messagingSenderId: "108539201153",
-    appId: "1:108539201153:web:a35388bd2386fcb9a2ccb0",
+    messagingSenderId: "1085392011537",
+    appId: "1:1085392011537:web:a35388bd2386fcb9a2ccb0",
     measurementId: "G-00SSJ5W0VH",
     databaseURL: "https://super-league-3fc14-default-rtdb.firebaseio.com"
 };
 
-let scDb = null;
-let scTeams = [];
-let scPlayers = [];
-let scBracket = { rounds: [], thirdPlace: null, champion: null, generated: false };
-let scNews = [];
+// --- STATE ---
+let db = null;
 let scIsAdmin = false;
 let scActiveView = 'bracket';
-let scEditingMatchId = null;
-let scGoalEntries = [];
+let scTeams = [];
+let scPlayers = [];
+let scRounds = [];      // Array of rounds; each round = array of matchups
+let scThirdPlace = null; // Separate third-place playoff matchup
+let scNews = [];
+let scActiveLegMatchup = null;
+let scActiveLegChoice = null; // 'first' | 'second'
+let scEditingScoreMatchup = null;
+let scEditingScoreLeg = null;
 
-// --- INIT ---
+// Round labels based on number of teams
+function scGetRoundLabels(numTeams) {
+    let labels = [];
+    let n = numTeams;
+    while (n > 1) {
+        if (n === 2) labels.push('Final');
+        else if (n === 4) labels.push('Semi-Finals');
+        else if (n === 8) labels.push('Quarter-Finals');
+        else if (n === 16) labels.push('Round of 16');
+        else if (n === 32) labels.push('Round of 32');
+        else labels.push('Round of ' + n);
+        n = n / 2;
+    }
+    return labels;
+}
+
+// --- FIREBASE INIT ---
 function scInitFirebase() {
-    firebase.initializeApp(scFirebaseConfig);
-    scDb = firebase.database();
-    scDb.ref('superCupData').on('value', (snapshot) => {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    scAttachListeners();
+}
+
+function scAttachListeners() {
+    db.ref('superCup').on('value', (snapshot) => {
         const data = snapshot.val();
-        if (data) {
-            scTeams = data.teams || [];
-            scPlayers = data.players || [];
-            scBracket = data.bracket || { rounds: [], thirdPlace: null, champion: null, generated: false };
-            scNews = data.news || [];
+        if (!data) {
+            scTeams = []; scPlayers = []; scRounds = []; scThirdPlace = null; scNews = [];
+        } else {
+            scTeams = Array.isArray(data.teams) ? data.teams : Object.values(data.teams || {});
+            scPlayers = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
+            scRounds = data.rounds ? (Array.isArray(data.rounds) ? data.rounds : Object.values(data.rounds)) : [];
+            scRounds = scRounds.filter(r => r && r.matchups); // strip any legacy corrupted entries
+            scThirdPlace = data.thirdPlace || null;
+            scNews = data.news ? (Array.isArray(data.news) ? data.news : Object.values(data.news || {})) : [];
         }
         scRenderAll();
     });
 }
 
-function scSaveData() {
-    if (!scDb) return;
-    scDb.ref('superCupData').set({
-        teams: scTeams,
-        players: scPlayers,
-        bracket: scBracket,
-        news: scNews
-    });
-}
-
-// --- ADMIN ---
-function scHandleAuth() {
-    if (scIsAdmin) {
-        scIsAdmin = false;
-        document.getElementById("scAdminToggle").innerText = "🔐 Admin";
-        document.getElementById("scAdminToggle").classList.remove("logged-in");
-        scRenderAll();
-    } else {
-        document.getElementById("scPasswordInput").value = "";
-        document.getElementById("scAuthModal").classList.add("active");
-    }
-}
-
-function scCloseAuthModal() {
-    document.getElementById("scAuthModal").classList.remove("active");
-}
-
-function scValidateAdmin() {
-    if (document.getElementById("scPasswordInput").value === "Windhoek") {
-        scIsAdmin = true;
-        document.getElementById("scAdminToggle").innerText = "🔓 Logout";
-        document.getElementById("scAdminToggle").classList.add("logged-in");
-        scCloseAuthModal();
-        scRenderAll();
-    } else {
-        alert("Incorrect password.");
-    }
+function scPersist() {
+    db.ref('superCup').set({ teams: scTeams, players: scPlayers, rounds: scRounds, thirdPlace: scThirdPlace, news: scNews });
 }
 
 // --- VIEW SWITCHING ---
 function scSwitchView(view) {
     scActiveView = view;
-    document.querySelectorAll(".sc-view").forEach(el => el.classList.remove("active"));
-    document.querySelectorAll(".sc-nav-btn").forEach(el => el.classList.remove("active"));
-    let viewId = "scView" + view.charAt(0).toUpperCase() + view.slice(1);
-    let navId = "scNav" + view.charAt(0).toUpperCase() + view.slice(1);
-    document.getElementById(viewId)?.classList.add("active");
-    document.getElementById(navId)?.classList.add("active");
+    document.querySelectorAll('.sc-view').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.sc-nav-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById('scView' + view.charAt(0).toUpperCase() + view.slice(1)).classList.add('active');
+    let navMap = { bracket: 'scNavBracket', stats: 'scNavStats', news: 'scNavNews' };
+    if (navMap[view]) document.getElementById(navMap[view]).classList.add('active');
     scRenderAll();
 }
 
-function scUpdateAdminUI() {
-    let manageBtn = document.getElementById("scManageSquadsBtn");
-    let genBtn = document.getElementById("scGenBracketBtn");
-    let postNewsBtn = document.getElementById("scPostNewsBtn");
-    if (manageBtn) manageBtn.style.display = scIsAdmin ? "inline-flex" : "none";
-    if (genBtn) genBtn.style.display = scIsAdmin ? "inline-flex" : "none";
-    if (postNewsBtn) postNewsBtn.style.display = scIsAdmin ? "inline-flex" : "none";
+// --- AUTH ---
+function scHandleAuth() {
+    if (scIsAdmin) {
+        scIsAdmin = false;
+        let btn = document.getElementById('scAdminToggle');
+        btn.innerText = '🔐 Admin';
+        btn.classList.remove('logged-in');
+        scRenderAll();
+    } else {
+        document.getElementById('scPasswordInput').value = '';
+        document.getElementById('scAuthModal').classList.add('active');
+    }
+}
+function scCloseAuthModal() { document.getElementById('scAuthModal').classList.remove('active'); }
+function scValidateAdmin() {
+    if (document.getElementById('scPasswordInput').value === 'Windhoek') {
+        scIsAdmin = true;
+        let btn = document.getElementById('scAdminToggle');
+        btn.innerText = '🔓 Logout';
+        btn.classList.add('logged-in');
+        scCloseAuthModal();
+        scRenderAll();
+    } else {
+        alert('Incorrect password.');
+    }
 }
 
-// --- SQUAD MANAGEMENT ---
+// --- TEAM / PLAYER MANAGEMENT ---
 function scOpenSquadModal() {
     scRenderTeamList();
     scRenderPlayerList();
-    scRenderTeamSelect();
-    document.getElementById("scSquadModal").classList.add("active");
+    scPopulatePlayerTeamDropdown();
+    document.getElementById('scSquadModal').classList.add('active');
 }
-
-function scCloseSquadModal() {
-    document.getElementById("scSquadModal").classList.remove("active");
-}
+function scCloseSquadModal() { document.getElementById('scSquadModal').classList.remove('active'); }
 
 function scAddTeam() {
-    let input = document.getElementById("scNewTeamName");
+    let input = document.getElementById('scNewTeamName');
     if (!input.value.trim()) return;
-    if (scBracket.generated) return alert("Bracket already generated. Regenerate the bracket after adding teams for them to appear.");
-    scTeams.push({ id: "sct" + Date.now(), name: input.value.trim() });
-    input.value = "";
-    scSaveData();
+    scTeams.push({ id: 'sct' + Date.now(), name: input.value.trim() });
+    input.value = '';
+    scPersist();
     scRenderTeamList();
-    scRenderTeamSelect();
+    scPopulatePlayerTeamDropdown();
 }
 
 function scDeleteTeam(id) {
-    if (!confirm("Delete this team? All its players will also be removed.")) return;
-    if (scBracket.generated) return alert("Cannot delete teams after the bracket is generated. Regenerate the bracket first.");
+    if (!confirm('Delete this team?')) return;
     scTeams = scTeams.filter(t => t.id !== id);
     scPlayers = scPlayers.filter(p => p.teamId !== id);
-    scSaveData();
+    scPersist();
     scRenderTeamList();
+    scPopulatePlayerTeamDropdown();
     scRenderPlayerList();
-    scRenderTeamSelect();
 }
 
 function scRenderTeamList() {
-    let list = document.getElementById("scTeamList");
-    if (!list) return;
-    list.innerHTML = scTeams.length === 0
-        ? '<div style="color:var(--sc-muted); font-size:13px; padding:12px; text-align:center;">No teams added yet.</div>'
-        : scTeams.map(t => `
-            <div class="sc-team-list-item">
-                <span>🛡️ ${t.name}</span>
-                <button class="sc-item-delete" onclick="scDeleteTeam('${t.id}')">×</button>
-            </div>`).join('');
+    let el = document.getElementById('scTeamList');
+    el.innerHTML = scTeams.map(t => `
+        <div class="sc-team-list-item">
+            <span>🛡️ ${t.name}</span>
+            <button class="sc-item-delete" onclick="scDeleteTeam('${t.id}')">🗑️</button>
+        </div>`).join('') || '<div class="sc-empty">No teams registered yet.</div>';
 }
 
 function scAddPlayer() {
-    let nameInput = document.getElementById("scNewPlayerName");
-    let teamSelect = document.getElementById("scNewPlayerTeam");
+    let nameInput = document.getElementById('scNewPlayerName');
+    let teamSelect = document.getElementById('scNewPlayerTeam');
     if (!nameInput.value.trim()) return;
-    if (!teamSelect.value) return alert("Add a team first before registering players.");
-    scPlayers.push({ id: "scp" + Date.now(), name: nameInput.value.trim(), teamId: teamSelect.value });
-    nameInput.value = "";
-    scSaveData();
+    scPlayers.push({ id: 'scp' + Date.now(), name: nameInput.value.trim(), teamId: teamSelect.value, goals: 0, assists: 0 });
+    nameInput.value = '';
+    scPersist();
     scRenderPlayerList();
 }
 
 function scDeletePlayer(id) {
-    if (!confirm("Delete this player?")) return;
+    if (!confirm('Delete this player?')) return;
     scPlayers = scPlayers.filter(p => p.id !== id);
-    scSaveData();
+    scPersist();
     scRenderPlayerList();
 }
 
 function scRenderPlayerList() {
-    let list = document.getElementById("scPlayerList");
-    if (!list) return;
-    if (scPlayers.length === 0) {
-        list.innerHTML = '<div style="color:var(--sc-muted); font-size:13px; padding:12px; text-align:center;">No players registered yet.</div>';
-        return;
-    }
-    list.innerHTML = scPlayers.map(p => {
+    let el = document.getElementById('scPlayerList');
+    el.innerHTML = scPlayers.map(p => {
         let team = scTeams.find(t => t.id === p.teamId);
         return `
-            <div class="sc-player-list-item">
-                <span>👤 ${p.name} <span style="color:var(--sc-muted); font-size:11px;">(${team ? team.name : 'No team'})</span></span>
-                <button class="sc-item-delete" onclick="scDeletePlayer('${p.id}')">×</button>
-            </div>`;
-    }).join('');
+        <div class="sc-player-list-item">
+            <span>👤 ${p.name} <small style="color:var(--sc-muted)">(${team ? team.name : 'Free Agent'})</small></span>
+            <button class="sc-item-delete" onclick="scDeletePlayer('${p.id}')">🗑️</button>
+        </div>`;
+    }).join('') || '<div class="sc-empty">No players registered yet.</div>';
 }
 
-function scRenderTeamSelect() {
-    let select = document.getElementById("scNewPlayerTeam");
-    if (!select) return;
-    select.innerHTML = scTeams.length === 0
-        ? '<option value="">Add a team first</option>'
-        : scTeams.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+function scPopulatePlayerTeamDropdown() {
+    let sel = document.getElementById('scNewPlayerTeam');
+    sel.innerHTML = scTeams.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
 }
 
 // --- BRACKET GENERATION ---
-function scGetRoundName(roundIndex, totalRounds) {
-    let fromEnd = totalRounds - roundIndex - 1;
-    if (fromEnd === 0) return "Final";
-    if (fromEnd === 1) return "Semi Finals";
-    if (fromEnd === 2) return "Quarter Finals";
-    if (fromEnd === 3) return "Round of 16";
-    if (fromEnd === 4) return "Round of 32";
-    let teamsInRound = Math.pow(2, totalRounds - roundIndex);
-    return "Round of " + teamsInRound;
-}
-
 function scGenerateBracket() {
-    if (scTeams.length < 2) return alert("Add at least 2 teams first.");
-    if (scBracket.generated) {
-        if (!confirm("Generate a new bracket? This will replace the existing bracket and all scores.")) return;
-    } else {
-        if (!confirm("Generate the tournament bracket from the current teams?")) return;
-    }
+    if (scTeams.length < 2) { alert('Add at least 2 teams to generate a bracket.'); return; }
+    // Pad to next power of 2 with byes
+    let n = scTeams.length;
+    let pow2 = 1;
+    while (pow2 < n) pow2 *= 2;
 
     let shuffled = [...scTeams].sort(() => Math.random() - 0.5);
-    let n = shuffled.length;
-    let numRounds = Math.ceil(Math.log2(n));
-    let totalSlots = Math.pow(2, numRounds);
-    let baseTime = Date.now();
-    let matchCounter = 0;
+    while (shuffled.length < pow2) shuffled.push(null); // null = bye
+
+    let labels = scGetRoundLabels(pow2);
+    scRounds = [];
 
     // First round
-    let firstRoundMatches = [];
-    for (let i = 0; i < totalSlots; i += 2) {
-        let homeTeam = i < n ? shuffled[i] : null;
-        let awayTeam = (i + 1) < n ? shuffled[i + 1] : null;
-        let match = {
-            id: "scm-" + baseTime + "-" + matchCounter++,
-            homeId: homeTeam ? homeTeam.id : null,
-            awayId: awayTeam ? awayTeam.id : null,
-            homeScore: null, awayScore: null,
-            homePen: null, awayPen: null,
-            events: [], completed: false, winnerId: null,
-            nextMatchId: null, nextSlot: null
+    let firstRound = [];
+    for (let i = 0; i < shuffled.length; i += 2) {
+        firstRound.push({
+            id: 'scm' + Date.now() + '-' + i,
+            homeId: shuffled[i] ? shuffled[i].id : null,
+            awayId: shuffled[i+1] ? shuffled[i+1].id : null,
+            legs: [scEmptyLeg(), scEmptyLeg()],
+            winnerId: null,
+            loserId: null,
+            isThirdPlace: false
+        });
+    }
+    scRounds.push({ label: labels[0], matchups: firstRound });
+
+    // Subsequent empty rounds
+    for (let r = 1; r < labels.length; r++) {
+        let count = firstRound.length / Math.pow(2, r);
+        let roundMatchups = [];
+        for (let i = 0; i < count; i++) {
+            roundMatchups.push({
+                id: 'scm' + Date.now() + '-' + r + '-' + i,
+                homeId: null, awayId: null,
+                legs: [scEmptyLeg(), scEmptyLeg()],
+                winnerId: null, loserId: null,
+                isThirdPlace: false
+            });
+        }
+        scRounds.push({ label: labels[r], matchups: roundMatchups });
+    }
+
+    // Third-place playoff: losers of the semi-finals
+    scThirdPlace = null;
+    let sfIdx = labels.length - 2;
+    if (sfIdx >= 0) {
+        scThirdPlace = {
+            id: 'scm-tp-' + Date.now(),
+            homeId: null, awayId: null,
+            legs: [scEmptyLeg(), scEmptyLeg()],
+            winnerId: null, loserId: null,
+            isThirdPlace: true
         };
-        if (homeTeam && !awayTeam) { match.winnerId = homeTeam.id; match.completed = true; }
-        else if (!homeTeam && awayTeam) { match.winnerId = awayTeam.id; match.completed = true; }
-        firstRoundMatches.push(match);
     }
 
-    let allRounds = [{ name: scGetRoundName(0, numRounds), matches: firstRoundMatches }];
-    let prevMatches = firstRoundMatches;
-
-    for (let r = 1; r < numRounds; r++) {
-        let nextMatches = [];
-        let matchesInRound = prevMatches.length / 2;
-        for (let m = 0; m < matchesInRound; m++) {
-            let prevHome = prevMatches[m * 2];
-            let prevAway = prevMatches[m * 2 + 1];
-            let match = {
-                id: "scm-" + baseTime + "-" + matchCounter++,
-                homeId: prevHome.winnerId || null,
-                awayId: prevAway.winnerId || null,
-                homeScore: null, awayScore: null,
-                homePen: null, awayPen: null,
-                events: [], completed: false, winnerId: null,
-                nextMatchId: null, nextSlot: null
-            };
-            prevHome.nextMatchId = match.id;
-            prevHome.nextSlot = "home";
-            prevAway.nextMatchId = match.id;
-            prevAway.nextSlot = "away";
-            nextMatches.push(match);
-        }
-        prevMatches = nextMatches;
-        allRounds.push({ name: scGetRoundName(r, numRounds), matches: prevMatches });
-    }
-
-    let thirdPlace = {
-        id: "scm-3rd-" + baseTime,
-        homeId: null, awayId: null,
-        homeScore: null, awayScore: null,
-        homePen: null, awayPen: null,
-        events: [], completed: false, winnerId: null,
-        nextMatchId: null, nextSlot: null,
-        isThirdPlace: true
-    };
-
-    scBracket = { rounds: allRounds, thirdPlace: thirdPlace, champion: null, generated: true };
-    scSaveData();
+    scPersist();
     scRenderAll();
-    alert("✅ Bracket generated! " + shuffled.length + " teams drawn into the tournament.");
 }
 
-// --- MATCH LOOKUP ---
-function scFindMatchById(matchId) {
-    for (let round of scBracket.rounds) {
-        let match = round.matches.find(m => m.id === matchId);
-        if (match) return match;
-    }
-    if (scBracket.thirdPlace && scBracket.thirdPlace.id === matchId) return scBracket.thirdPlace;
-    return null;
+function scEmptyLeg() {
+    return { homeScore: null, awayScore: null, events: [], completed: false };
 }
 
-function scGetAllMatches() {
-    let all = [];
-    scBracket.rounds.forEach(r => { all = all.concat(r.matches); });
-    if (scBracket.thirdPlace) all.push(scBracket.thirdPlace);
-    return all;
+// --- AGGREGATE & WINNER CALCULATION ---
+function scGetAggregate(matchup) {
+    let aggH = 0, aggA = 0;
+    if (matchup.legs[0].completed) { aggH += matchup.legs[0].homeScore || 0; aggA += matchup.legs[0].awayScore || 0; }
+    if (matchup.legs[1].completed) { aggH += matchup.legs[1].homeScore || 0; aggA += matchup.legs[1].awayScore || 0; }
+    return { aggH, aggA };
 }
 
-// --- WINNER ADVANCEMENT ---
-function scProcessMatchResult(match) {
-    if (match.homeScore === null || match.awayScore === null) return;
+function scDetermineWinner(matchup) {
+    if (!matchup.homeId || !matchup.awayId) return null;
+    let { aggH, aggA } = scGetAggregate(matchup);
+    if (!matchup.legs[0].completed || !matchup.legs[1].completed) return null;
+    if (aggH > aggA) return matchup.homeId;
+    if (aggA > aggH) return matchup.awayId;
+    // Tie — use away goals as tiebreaker
+    let awayGoalsH = (matchup.legs[1].homeScore || 0); // home team's away goals (leg 2 they are away? no)
+    // Actually: in leg 1, homeId team is home. In leg 2, awayId team is home.
+    // So home team's "away goals" = goals scored in leg 2
+    let homeAwayGoals = matchup.legs[1].awayScore || 0; // homeId team plays away in leg 2
+    let awayAwayGoals = matchup.legs[0].awayScore || 0; // awayId team plays away in leg 1
+    if (homeAwayGoals > awayAwayGoals) return matchup.homeId;
+    if (awayAwayGoals > homeAwayGoals) return matchup.awayId;
+    // Still tied — we'll just pick home as winner for simplicity (could add penalties later)
+    return matchup.homeId; // default to home on full tie
+}
 
-    let winnerId = null;
-    if (match.homeScore > match.awayScore) winnerId = match.homeId;
-    else if (match.awayScore > match.homeScore) winnerId = match.awayId;
-    else if (match.homePen !== null && match.awayPen !== null) {
-        if (match.homePen > match.awayPen) winnerId = match.homeId;
-        else if (match.awayPen > match.homePen) winnerId = match.awayId;
-    }
-
-    if (!winnerId) { match.completed = false; match.winnerId = null; return; }
-
-    match.winnerId = winnerId;
-    match.completed = true;
-
-    // Advance winner to next match
-    if (match.nextMatchId) {
-        let nextMatch = scFindMatchById(match.nextMatchId);
-        if (nextMatch) {
-            if (match.nextSlot === "home") nextMatch.homeId = winnerId;
-            else nextMatch.awayId = winnerId;
+function scAdvanceWinners() {
+    for (let r = 0; r < scRounds.length; r++) {
+        let round = scRounds[r];
+        if (!round || !round.matchups) continue;
+        for (let m of round.matchups) {
+            m.winnerId = scDetermineWinner(m);
+            m.loserId = m.winnerId ? (m.winnerId === m.homeId ? m.awayId : m.homeId) : null;
+        }
+        // Push winners into next round
+        if (r + 1 < scRounds.length) {
+            let nextRound = scRounds[r + 1];
+            for (let i = 0; i < round.matchups.length; i += 2) {
+                let m1 = round.matchups[i];
+                let m2 = round.matchups[i + 1];
+                let nextM = nextRound.matchups[i / 2];
+                if (nextM) {
+                    nextM.homeId = m1 ? m1.winnerId : null;
+                    nextM.awayId = m2 ? m2.winnerId : null;
+                }
+            }
         }
     }
 
-    // Final -> set champion
-    if (!match.nextMatchId && !match.isThirdPlace) {
-        scBracket.champion = winnerId;
-    }
-
-    // Semi-final losers -> third place playoff
-    if (scBracket.thirdPlace && !match.isThirdPlace) {
-        let semiRoundIdx = scBracket.rounds.length - 2;
-        if (semiRoundIdx >= 0) {
-            let semiRound = scBracket.rounds[semiRoundIdx];
-            if (semiRound.matches.includes(match)) {
-                let loserId = winnerId === match.homeId ? match.awayId : match.homeId;
-                let semiIndex = semiRound.matches.indexOf(match);
-                if (semiIndex === 0) scBracket.thirdPlace.homeId = loserId;
-                else if (semiIndex === 1) scBracket.thirdPlace.awayId = loserId;
-            }
+    // Third-place: losers of semi-finals
+    if (scThirdPlace) {
+        let sfIdx = scRounds.length - 2;
+        if (sfIdx >= 0 && scRounds[sfIdx] && scRounds[sfIdx].matchups) {
+            let sf = scRounds[sfIdx].matchups;
+            scThirdPlace.homeId = sf[0] ? sf[0].loserId : null;
+            scThirdPlace.awayId = sf[1] ? sf[1].loserId : null;
+            scThirdPlace.winnerId = scDetermineWinner(scThirdPlace);
+            scThirdPlace.loserId = scThirdPlace.winnerId
+                ? (scThirdPlace.winnerId === scThirdPlace.homeId ? scThirdPlace.awayId : scThirdPlace.homeId)
+                : null;
         }
     }
 }
 
 // --- BRACKET RENDERING ---
 function scRenderBracket() {
-    let container = document.getElementById("scBracketContainer");
-    if (!container) return;
+    let container = document.getElementById('scBracketContainer');
 
-    if (!scBracket.generated || scBracket.rounds.length === 0) {
+    if (scRounds.length === 0) {
         container.innerHTML = `
             <div class="sc-bracket-empty">
                 <div class="sc-bracket-empty-icon">🏆</div>
-                <div class="sc-bracket-empty-text">Bracket not yet generated</div>
-                <div class="sc-bracket-empty-sub">${scIsAdmin ? 'Click "Generate Bracket" above to create the tournament draw.' : 'Check back soon for the tournament draw!'}</div>
+                <div class="sc-bracket-empty-text">No bracket generated yet.</div>
+                <div class="sc-bracket-empty-sub">${scIsAdmin ? 'Click "Generate Bracket" above to start the tournament.' : 'Check back soon for the tournament draw.'}</div>
             </div>`;
         return;
     }
 
-    let championHtml = '';
-    if (scBracket.champion) {
-        let champ = scTeams.find(t => t.id === scBracket.champion);
-        championHtml = `
-            <div class="sc-champion-card">
-                <div class="sc-champion-trophy">🏆</div>
-                <div class="sc-champion-label">Super Cup Champion</div>
-                <div class="sc-champion-name">${champ ? champ.name : 'Unknown'}</div>
-            </div>`;
-    }
+    scAdvanceWinners();
 
-    let columnsHtml = scBracket.rounds.map(round => {
-        let matchesHtml = round.matches.map(match => scRenderMatchCard(match)).join('');
-        return `<div class="sc-round-column"><div class="sc-round-label">${round.name}</div>${matchesHtml}</div>`;
-    }).join('');
-
-    let thirdPlaceHtml = '';
-    if (scBracket.thirdPlace && (scBracket.thirdPlace.homeId || scBracket.thirdPlace.awayId)) {
-        let tp = scBracket.thirdPlace;
-        thirdPlaceHtml = `
-            <div class="sc-third-place-section">
-                <div class="sc-third-place-title">🥉 Third Place Playoff</div>
-                <div class="sc-third-place-bracket">
-                    ${scRenderMatchCard(tp)}
-                </div>
-            </div>`;
-    }
-
-    container.innerHTML = championHtml +
-        '<div class="sc-bracket-container">' + columnsHtml + '</div>' +
-        thirdPlaceHtml;
-}
-
-function scRenderMatchCard(match) {
-    let homeName = scTeams.find(t => t.id === match.homeId)?.name || 'TBD';
-    let awayName = scTeams.find(t => t.id === match.awayId)?.name || 'TBD';
-    let homeScore = match.homeScore !== null ? match.homeScore : '-';
-    let awayScore = match.awayScore !== null ? match.awayScore : '-';
-    let homeClass = match.completed ? (match.winnerId === match.homeId ? 'winner' : 'eliminated') : '';
-    let awayClass = match.completed ? (match.winnerId === match.awayId ? 'winner' : 'eliminated') : '';
-
-    let homeScoreDisplay = String(homeScore);
-    let awayScoreDisplay = String(awayScore);
-    if (match.completed && match.homeScore === match.awayScore && match.homePen !== null) {
-        homeScoreDisplay = `${homeScore} <span style="font-size:11px;color:var(--sc-gold);">(${match.homePen})</span>`;
-        awayScoreDisplay = `${awayScore} <span style="font-size:11px;color:var(--sc-gold);">(${match.awayPen})</span>`;
-    }
-
-    let homeNameHtml = match.homeId
-        ? `<span class="sc-team-name" onclick="event.stopPropagation();scOpenSquadPopup('${match.homeId}')" style="cursor:pointer;text-decoration:underline dotted rgba(255,255,255,0.2);">${homeName}</span>`
-        : `<span class="sc-team-name">${homeName}</span>`;
-    let awayNameHtml = match.awayId
-        ? `<span class="sc-team-name" onclick="event.stopPropagation();scOpenSquadPopup('${match.awayId}')" style="cursor:pointer;text-decoration:underline dotted rgba(255,255,255,0.2);">${awayName}</span>`
-        : `<span class="sc-team-name">${awayName}</span>`;
-
-    return `
-        <div class="sc-match-card ${match.completed ? 'completed' : ''}" onclick="scOpenLegModal('${match.id}')" style="cursor:pointer;">
-            <div class="sc-match-team home ${homeClass}">
-                ${homeNameHtml}
-                <span class="sc-team-score">${homeScoreDisplay}</span>
-            </div>
-            <div class="sc-match-team away ${awayClass}">
-                ${awayNameHtml}
-                <span class="sc-team-score">${awayScoreDisplay}</span>
-            </div>
-        </div>`;
-}
-
-// --- LEG MODAL (Match Details) ---
-function scOpenLegModal(matchId) {
-    let match = scFindMatchById(matchId);
-    if (!match) return;
-
-    let homeName = scTeams.find(t => t.id === match.homeId)?.name || 'TBD';
-    let awayName = scTeams.find(t => t.id === match.awayId)?.name || 'TBD';
-
-    document.getElementById("scLegModalTitle").innerText = homeName + ' vs ' + awayName;
-
-    let homeScore = match.homeScore !== null ? match.homeScore : '-';
-    let awayScore = match.awayScore !== null ? match.awayScore : '-';
-
-    let eventsHtml = '';
-    if (match.events && match.events.length > 0) {
-        let lines = match.events.map(e => {
-            let p = scPlayers.find(x => x.id === e.playerId);
-            let name = p ? p.name : (e.playerName || 'Unknown');
-            let team = scTeams.find(t => t.id === e.teamId);
-            let teamName = team ? team.name : '';
-            if (e.type === 'goal') {
-                let pen = e.scoringType === 'penalty' ? ' (P)' : '';
-                return `<div class="sc-goal-entry"><span class="sc-goal-scorer">⚽ ${name}${pen}</span> <span style="color:var(--sc-muted);font-size:11px;">${teamName}</span></div>`;
-            }
-            if (e.type === 'assist') {
-                return `<div class="sc-goal-assist">👟 Assist: ${name} (${teamName})</div>`;
-            }
-            if (e.type === 'ownGoal') {
-                return `<div class="sc-goal-entry"><span class="sc-goal-scorer" style="color:var(--sc-red);">🔴 ${name} (OG)</span> <span style="color:var(--sc-muted);font-size:11px;">${teamName}</span></div>`;
-            }
-            return '';
-        }).join('');
-        eventsHtml = `<div class="sc-leg-detail-events" style="margin-top:14px;">${lines}</div>`;
-    } else if (match.completed) {
-        eventsHtml = '<div class="sc-no-events">No goal details recorded.</div>';
-    }
-
-    let penHtml = '';
-    if (match.completed && match.homeScore === match.awayScore && match.homePen !== null) {
-        penHtml = `<div style="text-align:center;margin-top:10px;font-size:13px;color:var(--sc-gold);">Penalties: ${match.homePen} - ${match.awayPen}</div>`;
-    }
-
-    let scoreDisplay = match.completed
-        ? `<div class="sc-leg-detail-score">${homeScore} - ${awayScore}</div>`
-        : '<div class="sc-no-events">Match not yet played.</div>';
-
-    let adminBtn = '';
-    if (scIsAdmin && match.homeId && match.awayId) {
-        if (!match.completed) {
-            adminBtn = `<button class="sc-enter-score-link" onclick="scOpenScoreModal('${match.id}')">✍️ Enter Score</button>`;
-        } else {
-            adminBtn = `<button class="sc-enter-score-link" style="background:linear-gradient(135deg,#1e293b,#0d0d25);color:#fff;border:1px solid var(--sc-border);" onclick="scOpenScoreModal('${match.id}')">⚙️ Edit Score</button>`;
+    // Champion card
+    let champHtml = '';
+    let finalRound = scRounds[scRounds.length - 1];
+    if (finalRound && finalRound.matchups && finalRound.matchups[0] && finalRound.matchups[0].winnerId) {
+        let champ = scTeams.find(t => t.id === finalRound.matchups[0].winnerId);
+        if (champ) {
+            champHtml = `
+                <div class="sc-champion-card">
+                    <div class="sc-champion-trophy">🏆</div>
+                    <div class="sc-champion-label">Super Cup Champion</div>
+                    <div class="sc-champion-name">${champ.name}</div>
+                </div>`;
         }
     }
 
-    document.getElementById("scLegModalBody").innerHTML = `
-        <div class="sc-leg-detail">
-            <div class="sc-leg-detail-header">
-                <span style="font-weight:700;">${homeName}</span>
-                ${scoreDisplay}
-                <span style="font-weight:700;">${awayName}</span>
-            </div>
-            ${eventsHtml}
-            ${penHtml}
-            ${adminBtn}
-        </div>`;
+    // Main bracket columns
+    let columnsHtml = '<div class="sc-bracket-container">';
+    scRounds.forEach((round) => {
+        if (!round || !round.matchups) return;
+        columnsHtml += `<div class="sc-round-column">
+            <div class="sc-round-label">${round.label}</div>`;
+        round.matchups.forEach(m => {
+            columnsHtml += scRenderMatchCard(m, round.label);
+        });
+        columnsHtml += '</div>';
+    });
+    columnsHtml += '</div>';
 
-    document.getElementById("scLegModal").classList.add("active");
+    // Third-place section
+    let thirdHtml = '';
+    if (scThirdPlace) {
+        let tp = scThirdPlace;
+        if (tp.homeId || tp.awayId) {
+            thirdHtml = `
+                <div class="sc-third-place-section">
+                    <div class="sc-third-place-title">🥉 Third-Place Playoff</div>
+                    <div class="sc-third-place-bracket">
+                        ${scRenderMatchCard(tp, 'Third-Place Playoff')}
+                    </div>
+                </div>`;
+        }
+    }
+
+    container.innerHTML = champHtml + columnsHtml + thirdHtml;
 }
 
-function scCloseLegModal() {
-    document.getElementById("scLegModal").classList.remove("active");
+function scRenderMatchCard(m, label) {
+    let homeTeam = scTeams.find(t => t.id === m.homeId);
+    let awayTeam = scTeams.find(t => t.id === m.awayId);
+    let hName = homeTeam ? homeTeam.name : 'TBD';
+    let aName = awayTeam ? awayTeam.name : 'TBD';
+
+    let { aggH, aggA } = scGetAggregate(m);
+    let bothLegsDone = m.legs[0].completed && m.legs[1].completed;
+    let winnerId = scDetermineWinner(m);
+
+    let homeClass = winnerId === m.homeId ? 'winner' : (winnerId && winnerId !== m.homeId ? 'eliminated' : '');
+    let awayClass = winnerId === m.awayId ? 'winner' : (winnerId && winnerId !== m.awayId ? 'eliminated' : '');
+
+    let aggText = bothLegsDone ? `${aggH} - ${aggA}` : 'Click to view legs';
+    let aggClass = bothLegsDone ? 'has-data' : '';
+
+    let scoreActions = '';
+    if (scIsAdmin && m.homeId && m.awayId) {
+        scoreActions = `<button class="sc-enter-score-link" onclick="scOpenScoreModal('${m.id}')">✍️ Enter Leg Scores</button>`;
+    }
+
+    return `
+        <div class="sc-match-card ${bothLegsDone ? 'completed' : ''}">
+            <div class="sc-match-team home ${homeClass}">
+                <span class="sc-team-name">🛡️ ${hName}</span>
+                <span class="sc-team-score">${bothLegsDone ? aggH : '-'}</span>
+            </div>
+            <div class="sc-match-team away ${awayClass}">
+                <span class="sc-team-name">🛡️ ${aName}</span>
+                <span class="sc-team-score">${bothLegsDone ? aggA : '-'}</span>
+            </div>
+            <div class="sc-match-aggregate ${aggClass}" onclick="scOpenLegModal('${m.id}')">
+                ${aggText} (Agg)
+            </div>
+            ${scoreActions}
+        </div>`;
+}
+
+// --- LEG MODAL ---
+function scOpenLegModal(matchupId) {
+    let m = scFindMatchup(matchupId);
+    if (!m) return;
+    scActiveLegMatchup = m;
+    scActiveLegChoice = null;
+    document.getElementById('scLegModalTitle').textContent = `${scTeams.find(t => t.id === m.homeId)?.name || 'TBD'} vs ${scTeams.find(t => t.id === m.awayId)?.name || 'TBD'}`;
+    scRenderLegModalBody();
+    document.getElementById('scLegModal').classList.add('active');
+}
+function scCloseLegModal() { document.getElementById('scLegModal').classList.remove('active'); }
+
+function scRenderLegModalBody() {
+    let body = document.getElementById('scLegModalBody');
+    let m = scActiveLegMatchup;
+    if (!m) return;
+
+    let leg1Done = m.legs[0].completed;
+    let leg2Done = m.legs[1].completed;
+
+    if (!scActiveLegChoice) {
+        body.innerHTML = `
+            <div class="sc-leg-selector">
+                <div class="sc-leg-btn ${leg1Done ? '' : ''}" onclick="scSelectLeg('first')">
+                    <div style="font-size:15px; font-weight:800;">First Leg</div>
+                    <div style="font-size:11px; margin-top:4px;">${leg1Done ? '✅ Played' : '⏳ Not played'}</div>
+                </div>
+                <div class="sc-leg-btn" onclick="scSelectLeg('second')">
+                    <div style="font-size:15px; font-weight:800;">Second Leg</div>
+                    <div style="font-size:11px; margin-top:4px;">${leg2Done ? '✅ Played' : '⏳ Not played'}</div>
+                </div>
+            </div>
+            ${scIsAdmin && m.homeId && m.awayId ? `<button class="sc-enter-score-link" onclick="scOpenScoreModal('${m.id}')">✍️ Enter Leg Scores</button>` : ''}
+        `;
+    } else {
+        let legIdx = scActiveLegChoice === 'first' ? 0 : 1;
+        let leg = m.legs[legIdx];
+        let homeTeam = scTeams.find(t => t.id === m.homeId);
+        let awayTeam = scTeams.find(t => t.id === m.awayId);
+        // In leg 2, the away team from leg 1 is the home team
+        let legHome = legIdx === 0 ? homeTeam : awayTeam;
+        let legAway = legIdx === 0 ? awayTeam : homeTeam;
+
+        let eventsHtml = '';
+        if (leg.events && leg.events.length > 0) {
+            eventsHtml = leg.events.map(e => {
+                let p = scPlayers.find(x => x.id === e.playerId);
+                let name = p ? p.name : (e.playerName || 'Unknown');
+                if (e.type === 'goals') {
+                    let assister = e.assistedBy ? scPlayers.find(x => x.id === e.assistedBy) : null;
+                    let assisterName = assister ? assister.name : null;
+                    let goalsList = e.goalsList || [];
+                    return goalsList.map(gl => {
+                        let aName = gl.assistedBy ? (scPlayers.find(x => x.id === gl.assistedBy)?.name || 'Unknown') : null;
+                        return `<div class="sc-goal-entry">
+                            <span class="sc-goal-scorer">⚽ ${name}</span>
+                            ${aName ? `<div class="sc-goal-assist">👟 Assist: ${aName}</div>` : ''}
+                        </div>`;
+                    }).join('');
+                }
+                return '';
+            }).join('');
+        }
+
+        body.innerHTML = `
+            <div class="sc-leg-selector">
+                <div class="sc-leg-btn ${scActiveLegChoice === 'first' ? 'active' : ''}" onclick="scSelectLeg('first')">First Leg</div>
+                <div class="sc-leg-btn ${scActiveLegChoice === 'second' ? 'active' : ''}" onclick="scSelectLeg('second')">Second Leg</div>
+            </div>
+            <div class="sc-leg-detail">
+                <div class="sc-leg-detail-header">
+                    <span style="font-weight:700;">${legHome ? legHome.name : 'TBD'} <small style="color:var(--sc-muted)">(H)</small></span>
+                    <span class="sc-leg-detail-score">${leg.completed ? (leg.homeScore + ' - ' + leg.awayScore) : 'VS'}</span>
+                    <span style="font-weight:700;">${legAway ? legAway.name : 'TBD'} <small style="color:var(--sc-muted)">(A)</small></span>
+                </div>
+                ${leg.completed && eventsHtml ? `<div class="sc-leg-detail-events">${eventsHtml}</div>` : '<div class="sc-no-events">No stats recorded for this leg.</div>'}
+            </div>
+            ${scIsAdmin && m.homeId && m.awayId ? `<button class="sc-enter-score-link" onclick="scOpenScoreModal('${m.id}')">✍️ Enter Leg Scores</button>` : ''}
+        `;
+    }
+}
+
+function scSelectLeg(leg) {
+    scActiveLegChoice = leg;
+    scRenderLegModalBody();
+}
+
+function scFindMatchup(id) {
+    for (let r of scRounds) {
+        if (!r || !r.matchups) continue;
+        let found = r.matchups.find(m => m.id === id);
+        if (found) return found;
+    }
+    if (scThirdPlace && scThirdPlace.id === id) return scThirdPlace;
+    return null;
 }
 
 // --- SCORE ENTRY MODAL ---
-function scOpenScoreModal(matchId) {
-    scEditingMatchId = matchId;
-    let match = scFindMatchById(matchId);
-    if (!match) return;
-
-    let homeName = scTeams.find(t => t.id === match.homeId)?.name || 'Home';
-    let awayName = scTeams.find(t => t.id === match.awayId)?.name || 'Away';
-
-    document.getElementById("scScoreModalTitle").innerText = homeName + ' vs ' + awayName;
-
-    scGoalEntries = (match.events || []).map(e => {
-        let assistEvent = match.events.find(a => a.type === 'assist' && a._linkedTo === e.playerId);
-        return {
-            playerId: e.playerId,
-            teamId: e.teamId,
-            playerName: e.playerName,
-            type: e.type,
-            scoringType: e.scoringType || 'regular',
-            assistId: ''
-        };
-    }).filter(e => e.type === 'goal' || e.type === 'ownGoal');
-
-    // Reconstruct assist IDs by matching consecutive events
-    let events = match.events || [];
-    for (let i = 0; i < scGoalEntries.length; i++) {
-        let entry = scGoalEntries[i];
-        let eventIdx = events.findIndex(e => e === events.filter(ev => ev.type === 'goal' || ev.type === 'ownGoal')[i]);
-        if (eventIdx >= 0 && events[eventIdx + 1] && events[eventIdx + 1].type === 'assist') {
-            entry.assistId = events[eventIdx + 1].playerId;
-        }
-    }
-
-    scRenderScoreModalBody(match);
-    document.getElementById("scScoreModal").classList.add("active");
+function scOpenScoreModal(matchupId) {
+    let m = scFindMatchup(matchupId);
+    if (!m || !scIsAdmin) return;
+    scEditingScoreMatchup = m;
+    scRenderScoreModalBody();
+    document.getElementById('scScoreModalTitle').textContent = `Score Entry: ${scTeams.find(t => t.id === m.homeId)?.name || ''} vs ${scTeams.find(t => t.id === m.awayId)?.name || ''}`;
+    document.getElementById('scScoreModal').classList.add('active');
 }
+function scCloseScoreModal() { document.getElementById('scScoreModal').classList.remove('active'); scEditingScoreMatchup = null; }
 
-function scRenderScoreModalBody(match) {
-    let homeName = scTeams.find(t => t.id === match.homeId)?.name || 'Home';
-    let awayName = scTeams.find(t => t.id === match.awayId)?.name || 'Away';
-    let homeScore = match.homeScore ?? 0;
-    let awayScore = match.awayScore ?? 0;
+function scRenderScoreModalBody() {
+    let body = document.getElementById('scScoreModalBody');
+    let m = scEditingScoreMatchup;
+    if (!m) return;
 
-    let allPlayers = scPlayers.filter(p => p.teamId === match.homeId || p.teamId === match.awayId);
-    let playerOpts = allPlayers.map(p => {
-        let team = scTeams.find(t => t.id === p.teamId);
-        return `<option value="${p.id}">${p.name} (${team ? team.name : ''})</option>`;
-    }).join('');
+    let legSelector = `
+        <div class="sc-leg-selector">
+            <div class="sc-leg-btn ${scEditingScoreLeg === 'first' || !scEditingScoreLeg ? 'active' : ''}" onclick="scSelectScoreLeg('first')">First Leg</div>
+            <div class="sc-leg-btn ${scEditingScoreLeg === 'second' ? 'active' : ''}" onclick="scSelectScoreLeg('second')">Second Leg</div>
+        </div>`;
 
-    let goalRowsHtml = scGoalEntries.map((entry, i) => {
-        let otherPlayers = allPlayers.filter(x => x.id !== entry.playerId);
-        let assistOpts = otherPlayers.map(x => {
-            let team = scTeams.find(t => t.id === x.teamId);
-            return `<option value="${x.id}" ${entry.assistId === x.id ? 'selected' : ''}>${x.name} (${team ? team.name : ''})</option>`;
-        }).join('');
+    let legIdx = scEditingScoreLeg === 'second' ? 1 : 0;
+    if (!scEditingScoreLeg) scEditingScoreLeg = 'first';
+    legIdx = scEditingScoreLeg === 'second' ? 1 : 0;
 
-        let typeVal = entry.type === 'goal' && entry.scoringType === 'penalty' ? 'penalty' : entry.type;
+    let leg = m.legs[legIdx];
+    let homeTeam = scTeams.find(t => t.id === m.homeId);
+    let awayTeam = scTeams.find(t => t.id === m.awayId);
+    let legHome = legIdx === 0 ? homeTeam : awayTeam;
+    let legAway = legIdx === 0 ? awayTeam : homeTeam;
 
-        return `
-            <div class="sc-goal-row" id="scGoalRow${i}">
-                <select id="scGoalScorer${i}" onchange="scUpdateGoalEntry(${i})">
-                    <option value="">— Scorer —</option>
-                    ${allPlayers.map(p => {
-                        let team = scTeams.find(t => t.id === p.teamId);
-                        return `<option value="${p.id}" ${entry.playerId === p.id ? 'selected' : ''}>${p.name} (${team ? team.name : ''})</option>`;
-                    }).join('')}
-                </select>
-                <select id="scGoalType${i}" onchange="scUpdateGoalEntry(${i})">
-                    <option value="goal" ${typeVal === 'goal' ? 'selected' : ''}>⚽ Goal</option>
-                    <option value="penalty" ${typeVal === 'penalty' ? 'selected' : ''}>⚽ Penalty</option>
-                    <option value="ownGoal" ${typeVal === 'ownGoal' ? 'selected' : ''}>🔴 Own Goal</option>
-                </select>
-                <div style="display:flex;gap:4px;align-items:center;">
-                    <select id="scGoalAssist${i}" onchange="scUpdateGoalEntry(${i})" style="flex:1;">
-                        <option value="">— No Assist —</option>
-                        ${assistOpts}
-                    </select>
-                    <button class="sc-remove-goal-btn" onclick="scRemoveGoalEntry(${i})">×</button>
-                </div>
-            </div>`;
-    }).join('');
+    let homeScore = leg.homeScore ?? 0;
+    let awayScore = leg.awayScore ?? 0;
 
-    let penHtml = '';
-    if (homeScore === awayScore && match.homeId && match.awayId) {
-        penHtml = `
-            <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--sc-border);">
-                <div style="font-size:12px;font-weight:700;color:var(--sc-gold);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Penalty Shootout (if tied)</div>
-                <div class="sc-score-input-row">
-                    <div class="sc-score-input-item">
-                        <label>${homeName} Pens</label>
-                        <input type="number" id="scHomePen" value="${match.homePen ?? ''}" min="0" placeholder="0">
-                    </div>
-                    <div class="sc-score-input-item">
-                        <label>${awayName} Pens</label>
-                        <input type="number" id="scAwayPen" value="${match.awayPen ?? ''}" min="0" placeholder="0">
-                    </div>
-                </div>
-            </div>`;
-    }
+    // Home team players
+    let homePlayers = scPlayers.filter(p => p.teamId === (legIdx === 0 ? m.homeId : m.awayId));
+    let awayPlayers = scPlayers.filter(p => p.teamId === (legIdx === 0 ? m.awayId : m.homeId));
+    let allPlayers = [...homePlayers, ...awayPlayers];
 
-    document.getElementById("scScoreModalBody").innerHTML = `
-        <div class="sc-score-input-row">
-            <div class="sc-score-input-item">
-                <label>${homeName}</label>
-                <input type="number" id="scHomeScore" value="${homeScore}" min="0">
-            </div>
-            <div class="sc-score-input-item">
-                <label>${awayName}</label>
-                <input type="number" id="scAwayScore" value="${awayScore}" min="0">
-            </div>
-        </div>
-        <div class="sc-goal-entry-form">
-            <div class="sc-goal-entry-form-header">Goal Scorers & Assists</div>
-            <div id="scGoalRowsContainer">${goalRowsHtml}</div>
-            <button class="sc-add-goal-btn" onclick="scAddGoalEntry()">+ Add Goal</button>
-        </div>
-        ${penHtml}
-        <button class="sc-primary-btn" style="margin-top:16px;" onclick="scSaveScore()">💾 Save Score</button>
-    `;
-}
-
-function scAddGoalEntry() {
-    scGoalEntries.push({ playerId: '', teamId: '', type: 'goal', scoringType: 'regular', assistId: '' });
-    let match = scFindMatchById(scEditingMatchId);
-    scRenderScoreModalBody(match);
-}
-
-function scRemoveGoalEntry(index) {
-    scGoalEntries.splice(index, 1);
-    let match = scFindMatchById(scEditingMatchId);
-    scRenderScoreModalBody(match);
-}
-
-function scUpdateGoalEntry(index) {
-    let entry = scGoalEntries[index];
-    let scorerSelect = document.getElementById(`scGoalScorer${index}`);
-    let typeSelect = document.getElementById(`scGoalType${index}`);
-    let assistSelect = document.getElementById(`scGoalAssist${index}`);
-
-    entry.playerId = scorerSelect.value;
-    entry.assistId = assistSelect.value;
-
-    let p = scPlayers.find(x => x.id === entry.playerId);
-    entry.teamId = p ? p.teamId : '';
-    entry.playerName = p ? p.name : '';
-
-    let typeVal = typeSelect.value;
-    if (typeVal === 'penalty') { entry.type = 'goal'; entry.scoringType = 'penalty'; }
-    else { entry.type = typeVal; entry.scoringType = 'regular'; }
-}
-
-function scCloseScoreModal() {
-    document.getElementById("scScoreModal").classList.remove("active");
-    scEditingMatchId = null;
-}
-
-function scSaveScore() {
-    if (!scEditingMatchId || !scIsAdmin) return;
-    let match = scFindMatchById(scEditingMatchId);
-    if (!match) return;
-
-    match.homeScore = parseInt(document.getElementById("scHomeScore").value) || 0;
-    match.awayScore = parseInt(document.getElementById("scAwayScore").value) || 0;
-
-    let homePenInput = document.getElementById("scHomePen");
-    let awayPenInput = document.getElementById("scAwayPen");
-    match.homePen = homePenInput ? (parseInt(homePenInput.value) || null) : null;
-    match.awayPen = awayPenInput ? (parseInt(awayPenInput.value) || null) : null;
-
-    match.events = [];
-    scGoalEntries.forEach(entry => {
-        if (!entry.playerId) return;
-        let p = scPlayers.find(x => x.id === entry.playerId);
-        let playerName = p ? p.name : (entry.playerName || 'Unknown');
-        let teamId = p ? p.teamId : entry.teamId;
-
-        match.events.push({
-            playerId: entry.playerId,
-            playerName: playerName,
-            teamId: teamId,
-            type: entry.type,
-            scoringType: entry.scoringType || 'regular'
-        });
-
-        if (entry.assistId) {
-            let assister = scPlayers.find(x => x.id === entry.assistId);
-            match.events.push({
-                playerId: entry.assistId,
-                playerName: assister ? assister.name : 'Unknown',
-                teamId: assister ? assister.teamId : '',
-                type: 'assist',
-                scoringType: 'regular'
-            });
+    // Parse existing events
+    let existingGoals = {};
+    let existingAssists = {};
+    (leg.events || []).forEach(e => {
+        if (e.type === 'goals') {
+            existingGoals[e.playerId] = e.goalsList || [];
         }
     });
 
-    scProcessMatchResult(match);
-    scSaveData();
+    let renderGoalRows = (players) => {
+        return players.map(p => {
+            let goals = existingGoals[p.id] || [];
+            if (goals.length === 0) return '';
+            return goals.map((gl, gi) => `
+                <div class="sc-goal-row">
+                    <select class="sc-goal-scorer-sel" data-player-id="${p.id}" data-goal-idx="${gi}">
+                        ${allPlayers.map(x => `<option value="${x.id}" ${x.id === p.id ? 'selected' : ''}>${x.name}</option>`).join('')}
+                    </select>
+                    <select class="sc-goal-assist-sel" data-goal-idx="${gi}" data-scorer-id="${p.id}">
+                        <option value="">— No Assist —</option>
+                        ${allPlayers.filter(x => x.id !== p.id).map(x => `<option value="${x.id}" ${gl.assistedBy === x.id ? 'selected' : ''}>${x.name}</option>`).join('')}
+                    </select>
+                    <button class="sc-remove-goal-btn" onclick="scRemoveGoal(this, '${p.id}', ${gi})">✕</button>
+                </div>`).join('');
+        }).join('');
+    };
+
+    body.innerHTML = `
+        ${legSelector}
+        <div class="sc-score-input-row">
+            <div class="sc-score-input-item">
+                <label>${legHome ? legHome.name : 'Home'}</label>
+                <input type="number" id="scLegHomeScore" value="${homeScore}" min="0">
+            </div>
+            <div class="sc-score-input-item">
+                <label>${legAway ? legAway.name : 'Away'}</label>
+                <input type="number" id="scLegAwayScore" value="${awayScore}" min="0">
+            </div>
+        </div>
+        <div style="font-size:12px; color:var(--sc-muted); margin-bottom:8px;">Goals scored in this leg:</div>
+        <div id="scGoalEntryArea">
+            <div style="margin-bottom:12px;">
+                <div class="sc-goal-entry-form-header">${legHome ? legHome.name : 'Home'}</div>
+                <div id="scHomeGoalsArea">${renderGoalRows(homePlayers) || '<div class="sc-empty">No goals added.</div>'}</div>
+            </div>
+            <div style="margin-bottom:12px;">
+                <div class="sc-goal-entry-form-header">${legAway ? legAway.name : 'Away'}</div>
+                <div id="scAwayGoalsArea">${renderGoalRows(awayPlayers) || '<div class="sc-empty">No goals added.</div>'}</div>
+            </div>
+        </div>
+        <button class="sc-add-goal-btn" onclick="scAddGoalRow()">+ Add Goal</button>
+        <button class="sc-primary-btn" onclick="scSaveLegScore()" style="margin-top:16px;">💾 Save Leg Score</button>
+        <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:12px; color:var(--sc-muted); cursor:pointer;">
+            <input type="checkbox" id="scLegCompleted" ${leg.completed ? 'checked' : ''}> Mark this leg as completed
+        </label>
+    `;
+}
+
+function scSelectScoreLeg(leg) {
+    scEditingScoreLeg = leg;
+    scRenderScoreModalBody();
+}
+
+function scAddGoalRow() {
+    let m = scEditingScoreMatchup;
+    if (!m) return;
+    let legIdx = scEditingScoreLeg === 'second' ? 1 : 0;
+    let leg = m.legs[legIdx];
+
+    // Add a blank goal to first available player, or create unassigned
+    if (!leg.events) leg.events = [];
+    let allPlayers = scPlayers.filter(p => p.teamId === m.homeId || p.teamId === m.awayId);
+    let blankGoal = { scoringType: 'regular', assistedBy: '', scorerPlayerId: allPlayers[0] ? allPlayers[0].id : '' };
+
+    // Store in temp holding — we'll collect from DOM on save
+    // For now, just re-render with an extra row
+    let area = document.getElementById('scGoalEntryArea');
+    if (!area) return;
+
+    // Track unadded goals via a window temp
+    if (!window._scTempGoals) window._scTempGoals = [];
+    window._scTempGoals.push({ legIdx, scorerId: allPlayers[0] ? allPlayers[0].id : '', assistedBy: '' });
+
+    scRenderScoreModalBodyWithTemp();
+}
+
+function scRenderScoreModalBodyWithTemp() {
+    // Re-render score modal body including temp goals
+    let m = scEditingScoreMatchup;
+    if (!m) return;
+    let legIdx = scEditingScoreLeg === 'second' ? 1 : 0;
+    let leg = m.legs[legIdx];
+    let homeTeam = scTeams.find(t => t.id === m.homeId);
+    let awayTeam = scTeams.find(t => t.id === m.awayId);
+    let legHome = legIdx === 0 ? homeTeam : awayTeam;
+    let legAway = legIdx === 0 ? awayTeam : homeTeam;
+
+    let homePlayers = scPlayers.filter(p => p.teamId === (legIdx === 0 ? m.homeId : m.awayId));
+    let awayPlayers = scPlayers.filter(p => p.teamId === (legIdx === 0 ? m.awayId : m.homeId));
+    let allPlayers = [...homePlayers, ...awayPlayers];
+
+    let existingGoals = {};
+    (leg.events || []).forEach(e => {
+        if (e.type === 'goals') existingGoals[e.playerId] = e.goalsList || [];
+    });
+
+    // Temp goals (not yet saved)
+    let tempGoals = (window._scTempGoals || []).filter(t => t.legIdx === legIdx);
+
+    let renderGoalRows = (players, side) => {
+        let html = players.map(p => {
+            let goals = existingGoals[p.id] || [];
+            return goals.map((gl, gi) => `
+                <div class="sc-goal-row">
+                    <select class="sc-goal-scorer-sel" data-player-id="${p.id}" data-goal-idx="${gi}" data-side="${side}">
+                        ${allPlayers.map(x => `<option value="${x.id}" ${x.id === p.id ? 'selected' : ''}>${x.name}</option>`).join('')}
+                    </select>
+                    <select class="sc-goal-assist-sel" data-goal-idx="${gi}" data-scorer-id="${p.id}" data-side="${side}">
+                        <option value="">— No Assist —</option>
+                        ${allPlayers.filter(x => x.id !== p.id).map(x => `<option value="${x.id}" ${gl.assistedBy === x.id ? 'selected' : ''}>${x.name}</option>`).join('')}
+                    </select>
+                    <button class="sc-remove-goal-btn" onclick="scRemoveGoal(this, '${p.id}', ${gi})">✕</button>
+                </div>`).join('');
+        }).join('');
+
+        // Add temp goals for this side
+        let tempForSide = tempGoals.filter(t => {
+            let p = allPlayers.find(x => x.id === t.scorerId);
+            return p && (side === 'home' ? homePlayers.includes(p) : awayPlayers.includes(p));
+        });
+        tempForSide.forEach((t, i) => {
+            html += `
+                <div class="sc-goal-row sc-temp-goal">
+                    <select class="sc-goal-scorer-sel" data-temp-idx="${i}" data-side="${side}">
+                        ${allPlayers.map(x => `<option value="${x.id}" ${x.id === t.scorerId ? 'selected' : ''}>${x.name}</option>`).join('')}
+                    </select>
+                    <select class="sc-goal-assist-sel" data-temp-idx="${i}" data-side="${side}">
+                        <option value="">— No Assist —</option>
+                        ${allPlayers.filter(x => x.id !== t.scorerId).map(x => `<option value="${x.id}" ${x.id === t.assistedBy ? 'selected' : ''}>${x.name}</option>`).join('')}
+                    </select>
+                    <button class="sc-remove-goal-btn" onclick="scRemoveTempGoal(this, ${i}, '${side}')">✕</button>
+                </div>`;
+        });
+
+        return html || '<div class="sc-empty">No goals added.</div>';
+    };
+
+    let homeScore = document.getElementById('scLegHomeScore') ? document.getElementById('scLegHomeScore').value : (leg.homeScore ?? 0);
+    let awayScore = document.getElementById('scLegAwayScore') ? document.getElementById('scLegAwayScore').value : (leg.awayScore ?? 0);
+
+    let legSelector = `
+        <div class="sc-leg-selector">
+            <div class="sc-leg-btn ${scEditingScoreLeg === 'first' ? 'active' : ''}" onclick="scSelectScoreLeg('first')">First Leg</div>
+            <div class="sc-leg-btn ${scEditingScoreLeg === 'second' ? 'active' : ''}" onclick="scSelectScoreLeg('second')">Second Leg</div>
+        </div>`;
+
+    document.getElementById('scScoreModalBody').innerHTML = `
+        ${legSelector}
+        <div class="sc-score-input-row">
+            <div class="sc-score-input-item">
+                <label>${legHome ? legHome.name : 'Home'}</label>
+                <input type="number" id="scLegHomeScore" value="${homeScore}" min="0">
+            </div>
+            <div class="sc-score-input-item">
+                <label>${legAway ? legAway.name : 'Away'}</label>
+                <input type="number" id="scLegAwayScore" value="${awayScore}" min="0">
+            </div>
+        </div>
+        <div style="font-size:12px; color:var(--sc-muted); margin-bottom:8px;">Goals scored in this leg:</div>
+        <div id="scGoalEntryArea">
+            <div style="margin-bottom:12px;">
+                <div class="sc-goal-entry-form-header">${legHome ? legHome.name : 'Home'}</div>
+                <div id="scHomeGoalsArea">${renderGoalRows(homePlayers, 'home')}</div>
+            </div>
+            <div style="margin-bottom:12px;">
+                <div class="sc-goal-entry-form-header">${legAway ? legAway.name : 'Away'}</div>
+                <div id="scAwayGoalsArea">${renderGoalRows(awayPlayers, 'away')}</div>
+            </div>
+        </div>
+        <button class="sc-add-goal-btn" onclick="scAddGoalRow()">+ Add Goal</button>
+        <button class="sc-primary-btn" onclick="scSaveLegScore()" style="margin-top:16px;">💾 Save Leg Score</button>
+        <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:12px; color:var(--sc-muted); cursor:pointer;">
+            <input type="checkbox" id="scLegCompleted" ${leg.completed ? 'checked' : ''}> Mark this leg as completed
+        </label>
+    `;
+}
+
+function scRemoveGoal(btn, playerId, goalIdx) {
+    let m = scEditingScoreMatchup;
+    if (!m) return;
+    let legIdx = scEditingScoreLeg === 'second' ? 1 : 0;
+    let leg = m.legs[legIdx];
+    let ev = (leg.events || []).find(e => e.playerId === playerId && e.type === 'goals');
+    if (ev && ev.goalsList) {
+        ev.goalsList.splice(goalIdx, 1);
+        ev.count = ev.goalsList.length;
+        if (ev.goalsList.length === 0) {
+            leg.events = leg.events.filter(e => e !== ev);
+        }
+    }
+    scRenderScoreModalBodyWithTemp();
+}
+
+function scRemoveTempGoal(btn, tempIdx, side) {
+    if (!window._scTempGoals) return;
+    // Remove the nth temp goal for this side
+    let legIdx = scEditingScoreLeg === 'second' ? 1 : 0;
+    let temps = window._scTempGoals.filter(t => t.legIdx === legIdx);
+    let sideTemps = temps.filter(t => {
+        let allPlayers = scPlayers.filter(p => p.teamId === scEditingScoreMatchup.homeId || p.teamId === scEditingScoreMatchup.awayId);
+        let p = allPlayers.find(x => x.id === t.scorerId);
+        let homePlayers = scPlayers.filter(p => p.teamId === (legIdx === 0 ? scEditingScoreMatchup.homeId : scEditingScoreMatchup.awayId));
+        return side === 'home' ? homePlayers.includes(p) : !homePlayers.includes(p);
+    });
+    let toRemove = sideTemps[tempIdx];
+    if (toRemove) {
+        let realIdx = window._scTempGoals.indexOf(toRemove);
+        window._scTempGoals.splice(realIdx, 1);
+    }
+    scRenderScoreModalBodyWithTemp();
+}
+
+function scSaveLegScore() {
+    let m = scEditingScoreMatchup;
+    if (!m) return;
+    let legIdx = scEditingScoreLeg === 'second' ? 1 : 0;
+    let leg = m.legs[legIdx];
+
+    let homeScore = parseInt(document.getElementById('scLegHomeScore').value) || 0;
+    let awayScore = parseInt(document.getElementById('scLegAwayScore').value) || 0;
+    let completed = document.getElementById('scLegCompleted').checked;
+
+    // In leg 0: homeId team is home. In leg 1: awayId team is home.
+    let actualHomeId = legIdx === 0 ? m.homeId : m.awayId;
+    let actualAwayId = legIdx === 0 ? m.awayId : m.homeId;
+
+    // Collect goals from DOM
+    let newEvents = [];
+    let goalMap = {}; // playerId -> [{assistedBy}]
+
+    document.querySelectorAll('.sc-goal-row').forEach(row => {
+        let scorerSel = row.querySelector('.sc-goal-scorer-sel');
+        let assistSel = row.querySelector('.sc-goal-assist-sel');
+        if (!scorerSel) return;
+        let scorerId = scorerSel.value;
+        let assistId = assistSel ? assistSel.value : '';
+        if (!scorerId) return;
+        if (!goalMap[scorerId]) goalMap[scorerId] = [];
+        goalMap[scorerId].push({ scoringType: 'regular', assistedBy: assistId });
+    });
+
+    Object.entries(goalMap).forEach(([pId, goals]) => {
+        let scorer = scPlayers.find(x => x.id === pId);
+        let scorerTeamId = scorer ? scorer.teamId : null;
+        newEvents.push({
+            playerId: pId, playerName: scorer ? scorer.name : null, teamId: scorerTeamId,
+            type: 'goals', count: goals.length, goalsList: goals
+        });
+        goals.forEach(g => {
+            if (g.assistedBy) {
+                let existing = newEvents.find(e => e.playerId === g.assistedBy && e.type === 'assists');
+                let assister = scPlayers.find(x => x.id === g.assistedBy);
+                if (existing) existing.count++;
+                else newEvents.push({
+                    playerId: g.assistedBy, playerName: assister ? assister.name : null,
+                    teamId: assister ? assister.teamId : null, type: 'assists', count: 1
+                });
+            }
+        });
+    });
+
+    leg.homeScore = homeScore;
+    leg.awayScore = awayScore;
+    leg.events = newEvents;
+    leg.completed = completed;
+
+    // Clear temp goals
+    window._scTempGoals = [];
+
+    scPersist();
     scCloseScoreModal();
-    scCloseLegModal();
     scRenderAll();
 }
 
 // --- STATS ---
-function scRenderStats() {
-    let goalMap = {};
-    let assistMap = {};
-
-    scGetAllMatches().forEach(m => {
-        if (!m.events) return;
-        m.events.forEach(e => {
-            if (e.type === 'goal') {
-                if (!goalMap[e.playerId]) goalMap[e.playerId] = { count: 0, name: e.playerName, teamId: e.teamId };
-                goalMap[e.playerId].count++;
-            }
-            if (e.type === 'assist') {
-                if (!assistMap[e.playerId]) assistMap[e.playerId] = { count: 0, name: e.playerName, teamId: e.teamId };
-                assistMap[e.playerId].count++;
-            }
+function scComputeStats() {
+    let stats = {};
+    scRounds.forEach(round => {
+        if (!round || !round.matchups) return;
+        round.matchups.forEach(m => {
+            if (!m.legs) return;
+            m.legs.forEach(leg => {
+                if (!leg.events) return;
+                leg.events.forEach(e => {
+                    if (!stats[e.playerId]) stats[e.playerId] = { goals: 0, assists: 0 };
+                    if (e.type === 'goals') stats[e.playerId].goals += (e.count || 0);
+                    if (e.type === 'assists') stats[e.playerId].assists += (e.count || 0);
+                });
+            });
         });
     });
+    // Third place
+    if (scThirdPlace && scThirdPlace.legs) {
+        scThirdPlace.legs.forEach(leg => {
+            if (!leg.events) return;
+            leg.events.forEach(e => {
+                if (!stats[e.playerId]) stats[e.playerId] = { goals: 0, assists: 0 };
+                if (e.type === 'goals') stats[e.playerId].goals += (e.count || 0);
+                if (e.type === 'assists') stats[e.playerId].assists += (e.count || 0);
+            });
+        });
+    }
+    return stats;
+}
 
-    let scorers = Object.entries(goalMap).map(([id, data]) => {
-        let p = scPlayers.find(x => x.id === id);
-        let team = scTeams.find(t => t.id === (p ? p.teamId : data.teamId));
-        return { id, name: p ? p.name : data.name, teamName: team ? team.name : '', goals: data.count };
-    }).sort((a, b) => b.goals - a.goals);
+function scRenderStats() {
+    let stats = scComputeStats();
+    let scorers = Object.entries(stats)
+        .filter(([id, s]) => s.goals > 0)
+        .sort((a, b) => b[1].goals - a[1].goals);
+    let assists = Object.entries(stats)
+        .filter(([id, s]) => s.assists > 0)
+        .sort((a, b) => b[1].assists - a[1].assists);
 
-    let assisters = Object.entries(assistMap).map(([id, data]) => {
-        let p = scPlayers.find(x => x.id === id);
-        let team = scTeams.find(t => t.id === (p ? p.teamId : data.teamId));
-        return { id, name: p ? p.name : data.name, teamName: team ? team.name : '', assists: data.count };
-    }).sort((a, b) => b.assists - a.assists);
+    let renderList = (list, statKey) => {
+        if (list.length === 0) return '<div class="sc-empty">No stats recorded yet.</div>';
+        return list.map(([id, s], idx) => {
+            let p = scPlayers.find(x => x.id === id);
+            let team = p ? scTeams.find(t => t.id === p.teamId) : null;
+            let name = p ? p.name : 'Unknown';
+            return `<div class="sc-stat-row ${idx === 0 ? 'top' : ''}">
+                <div>
+                    <div class="sc-stat-name">${idx === 0 ? '👑 ' : ''}${name}</div>
+                    <div class="sc-stat-team">${team ? team.name : 'Free Agent'}</div>
+                </div>
+                <div class="sc-stat-val">${s[statKey]}</div>
+            </div>`;
+        }).join('');
+    };
 
-    let scorersHtml = scorers.length === 0
-        ? '<div class="sc-empty">No goals scored yet.</div>'
-        : scorers.map((s, i) => `
-            <div class="sc-stat-row ${i === 0 ? 'top' : ''}">
-                <div><div class="sc-stat-name">${s.name}</div><div class="sc-stat-team">${s.teamName}</div></div>
-                <div class="sc-stat-val">${s.goals}</div>
-            </div>`).join('');
-
-    let assistersHtml = assisters.length === 0
-        ? '<div class="sc-empty">No assists recorded yet.</div>'
-        : assisters.map((a, i) => `
-            <div class="sc-stat-row ${i === 0 ? 'top' : ''}">
-                <div><div class="sc-stat-name">${a.name}</div><div class="sc-stat-team">${a.teamName}</div></div>
-                <div class="sc-stat-val">${a.assists}</div>
-            </div>`).join('');
-
-    let scEl = document.getElementById("scTopScorers");
-    let saEl = document.getElementById("scTopAssists");
-    if (scEl) scEl.innerHTML = scorersHtml;
-    if (saEl) saEl.innerHTML = assistersHtml;
+    document.getElementById('scTopScorers').innerHTML = renderList(scorers, 'goals');
+    document.getElementById('scTopAssists').innerHTML = renderList(assists, 'assists');
 }
 
 // --- NEWS ---
-function scOpenNewsPostModal() {
-    document.getElementById("scNewsHeadline").value = "";
-    document.getElementById("scNewsBody").value = "";
-    document.getElementById("scNewsPostModal").classList.add("active");
-}
-
-function scCloseNewsPostModal() {
-    document.getElementById("scNewsPostModal").classList.remove("active");
-}
-
-function scPublishNews() {
-    if (!scIsAdmin) return;
-    let headline = document.getElementById("scNewsHeadline").value.trim();
-    let body = document.getElementById("scNewsBody").value.trim();
-    if (!headline || !body) return alert("Please fill in both headline and body.");
-    scNews.unshift({
-        id: "scn" + Date.now(),
-        headline, body,
-        date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-    });
-    scSaveData();
-    scCloseNewsPostModal();
-    scRenderNews();
-}
-
-function scDeleteNews(id) {
-    if (!scIsAdmin || !confirm("Delete this news post?")) return;
-    scNews = scNews.filter(n => n.id !== id);
-    scSaveData();
-    scRenderNews();
-}
-
-function scOpenNewsDetail(id) {
-    let item = scNews.find(n => n.id === id);
-    if (!item) return;
-    document.getElementById("scNewsDetailBody").innerHTML = `
-        <div class="sc-news-detail-headline">${item.headline}</div>
-        <div class="sc-news-detail-body">${item.body.replace(/\n/g, '<br>')}</div>
-        <div class="sc-news-detail-date">🗓️ ${item.date}</div>
-    `;
-    document.getElementById("scNewsDetailModal").classList.add("active");
-}
-
-function scCloseNewsDetail() {
-    document.getElementById("scNewsDetailModal").classList.remove("active");
-}
-
 function scRenderNews() {
-    let container = document.getElementById("scNewsContainer");
-    if (!container) return;
-    if (scNews.length === 0) {
-        container.innerHTML = '<div class="sc-empty">No news posts yet.</div>';
+    let container = document.getElementById('scNewsContainer');
+    if (!scNews || scNews.length === 0) {
+        container.innerHTML = '<div class="sc-empty">No cup news yet.</div>';
         return;
     }
     container.innerHTML = scNews.map(n => `
         <div class="sc-news-card" onclick="scOpenNewsDetail('${n.id}')">
-            ${scIsAdmin ? `<button class="sc-news-delete" onclick="event.stopPropagation();scDeleteNews('${n.id}')">×</button>` : ''}
+            ${scIsAdmin ? `<button class="sc-news-delete" onclick="event.stopPropagation(); scDeleteNews('${n.id}')">🗑️</button>` : ''}
             <div class="sc-news-headline">${n.headline}</div>
             <div class="sc-news-date">🗓️ ${n.date}</div>
         </div>`).join('');
 }
 
-// --- SQUAD POPUP ---
+function scOpenNewsDetail(id) {
+    let n = scNews.find(x => x.id === id);
+    if (!n) return;
+    document.getElementById('scNewsDetailBody').innerHTML = `
+        <div class="sc-news-detail-headline">${n.headline}</div>
+        <div class="sc-news-detail-body">${(n.body || '').replace(/\n/g, '<br>')}</div>
+        <div class="sc-news-detail-date">🗓️ ${n.date}</div>
+    `;
+    document.getElementById('scNewsDetailModal').classList.add('active');
+}
+function scCloseNewsDetail() { document.getElementById('scNewsDetailModal').classList.remove('active'); }
+
+function scOpenNewsPostModal() { document.getElementById('scNewsPostModal').classList.add('active'); }
+function scCloseNewsPostModal() { document.getElementById('scNewsPostModal').classList.remove('active'); }
+
+function scPublishNews() {
+    let headline = document.getElementById('scNewsHeadline').value.trim();
+    let body = document.getElementById('scNewsBody').value.trim();
+    if (!headline) return alert('Please enter a headline.');
+    scNews.unshift({
+        id: 'scn' + Date.now(), headline, body,
+        date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    });
+    document.getElementById('scNewsHeadline').value = '';
+    document.getElementById('scNewsBody').value = '';
+    scCloseNewsPostModal();
+    scPersist();
+    scRenderNews();
+}
+
+function scDeleteNews(id) {
+    if (!confirm('Delete this news post?')) return;
+    scNews = scNews.filter(n => n.id !== id);
+    scPersist();
+    scRenderNews();
+}
+
+// --- SQUAD POPUP (view players for a team) ---
 function scOpenSquadPopup(teamId) {
     let team = scTeams.find(t => t.id === teamId);
     if (!team) return;
-    document.getElementById("scSquadPopupTitle").innerText = team.name + " Squad";
+    document.getElementById('scSquadPopupTitle').textContent = team.name + ' — Squad';
     let teamPlayers = scPlayers.filter(p => p.teamId === teamId);
-    let list = document.getElementById("scSquadPopupList");
-    if (!list) return;
-
-    if (teamPlayers.length === 0) {
-        list.innerHTML = '<div class="sc-empty">No players registered.</div>';
-    } else {
-        list.innerHTML = teamPlayers.map(p => {
-            let goals = 0, assists = 0;
-            scGetAllMatches().forEach(m => {
-                if (!m.events) return;
-                m.events.forEach(e => {
-                    if (e.playerId === p.id) {
-                        if (e.type === 'goal') goals++;
-                        if (e.type === 'assist') assists++;
-                    }
-                });
-            });
-            return `<li><span>👤 ${p.name}</span><span class="sc-player-stats">${goals}G / ${assists}A</span></li>`;
-        }).join('');
-    }
-    document.getElementById("scSquadPopupModal").classList.add("active");
+    document.getElementById('scSquadPopupList').innerHTML = teamPlayers.map(p => {
+        return `<li><span>👤 ${p.name}</span><span class="sc-player-stats">${p.goals || 0} G / ${p.assists || 0} A</span></li>`;
+    }).join('') || '<div class="sc-empty">No players in this squad.</div>';
+    document.getElementById('scSquadPopupModal').classList.add('active');
 }
-
-function scCloseSquadPopup() {
-    document.getElementById("scSquadPopupModal").classList.remove("active");
-}
+function scCloseSquadPopup() { document.getElementById('scSquadPopupModal').classList.remove('active'); }
 
 // --- RENDER ALL ---
 function scRenderAll() {
-    scUpdateAdminUI();
-    scRenderBracket();
-    scRenderStats();
-    scRenderNews();
+    // Show/hide admin buttons
+    document.getElementById('scManageSquadsBtn').style.display = scIsAdmin ? 'block' : 'none';
+    document.getElementById('scGenBracketBtn').style.display = scIsAdmin ? 'block' : 'none';
+    document.getElementById('scPostNewsBtn').style.display = scIsAdmin ? 'block' : 'none';
+
+    if (scActiveView === 'bracket') scRenderBracket();
+    if (scActiveView === 'stats') scRenderStats();
+    if (scActiveView === 'news') scRenderNews();
 }
 
 // --- BOOTSTRAP ---
