@@ -1,17 +1,33 @@
 // Super League — Service Worker
 // Strategy: cache the static app shell (HTML/CSS/JS/icons) so the app installs
-// properly and opens instantly. Everything else (Supabase API calls, the
-// Supabase JS library from its CDN) is left completely alone and always goes
-// straight to the network — this is a live sports app, so cached scores or
-// standings would be actively misleading. Only the shell is cached, never data.
+// properly and opens instantly on repeat visits. Everything else (Supabase API
+// calls, the Supabase JS library from its CDN) is left completely alone and
+// always goes straight to the network — this is a live sports app, so cached
+// scores or standings would be actively misleading. Only the shell is cached,
+// never data.
 
-const CACHE_NAME = 'super-league-shell-v1';
-const SHELL_FILES = [
+const CACHE_NAME = 'super-league-shell-v2';
+
+// Only these lightweight files get force-downloaded the moment someone visits.
+// The larger icon files are still cacheable (see the fetch handler below), but
+// only get fetched — and cached — the first time something actually requests
+// them, usually when the OS shows an install prompt, rather than adding
+// several hundred KB of upfront weight to every single page load.
+const PRECACHE_FILES = [
   './index.html',
   './style.css',
   './app.js',
   './manifest.json',
-  './icons/icon-192.png',
+  './icons/icon-32.png',
+  './icons/icon-192.png'
+];
+
+// Every file the service worker is allowed to intercept/cache at all —
+// precached files plus the heavier icons, cached lazily on first request.
+const SHELL_FILES = [
+  ...PRECACHE_FILES,
+  './icons/icon-16.png',
+  './icons/icon-180.png',
   './icons/icon-512.png',
   './icons/icon-maskable-192.png',
   './icons/icon-maskable-512.png'
@@ -19,7 +35,15 @@ const SHELL_FILES = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_FILES))
+    caches.open(CACHE_NAME).then((cache) =>
+      // Cache each file individually (not addAll) so one bad/missing path
+      // can never fail the entire install — that was the actual bug before.
+      Promise.all(
+        PRECACHE_FILES.map((file) =>
+          cache.add(file).catch((err) => console.warn('Precache failed for', file, err))
+        )
+      )
+    )
   );
   self.skipWaiting();
 });
@@ -38,14 +62,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Only handle GET requests for our own shell files. Everything else
-  // (Supabase REST/Realtime calls, the Supabase JS CDN script, any other
-  // origin) is left untouched so it always hits the real network.
   const isSameOrigin = url.origin === self.location.origin;
   const isShellFile = SHELL_FILES.some((f) => url.pathname.endsWith(f.replace('./', '')));
 
   if (event.request.method !== 'GET' || !isSameOrigin || !isShellFile) {
-    return; // let the browser handle it normally — no caching, no interception
+    return;
   }
 
   event.respondWith(
@@ -58,9 +79,8 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         })
-        .catch(() => cached); // offline — fall back to whatever's cached
+        .catch(() => cached);
 
-      // Cache-first for instant loads, but still refresh the cache in the background
       return cached || networkFetch;
     })
   );
