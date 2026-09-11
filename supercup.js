@@ -184,36 +184,128 @@ function scPopulatePlayerTeamDropdown() {
     sel.innerHTML = scTeams.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
 }
 
-// --- BRACKET GENERATION ---
-function scGenerateBracket() {
-    if (scTeams.length < 2) { alert('Add at least 2 teams to generate a bracket.'); return; }
-    // Pad to next power of 2 with byes
-    let n = scTeams.length;
-    let pow2 = 1;
-    while (pow2 < n) pow2 *= 2;
+// --- BRACKET GENERATION (manual matchup picker) ---
+let scPickerPairs = []; // array of {homeId, awayId}
 
-    let shuffled = [...scTeams].sort(() => Math.random() - 0.5);
-    while (shuffled.length < pow2) shuffled.push(null); // null = bye
+function scOpenMatchupPicker() {
+    if (scTeams.length < 2) { alert('Add at least 2 teams to generate a bracket.'); return; }
+    if (scRounds.length > 0) {
+        if (!confirm('A bracket already exists. Regenerating will clear all scores. Continue?')) return;
+    }
+    scPickerPairs = [];
+    scRenderMatchupPicker();
+    document.getElementById('scMatchupPickerModal').classList.add('active');
+}
+
+function scCloseMatchupPicker() {
+    document.getElementById('scMatchupPickerModal').classList.remove('active');
+}
+
+function scRenderMatchupPicker() {
+    let body = document.getElementById('scMatchupPickerBody');
+    let usedIds = new Set();
+    scPickerPairs.forEach(p => { if (p.homeId) usedIds.add(p.homeId); if (p.awayId) usedIds.add(p.awayId); });
+    let available = scTeams.filter(t => !usedIds.has(t.id));
+
+    let html = '';
+
+    // Existing pairs
+    scPickerPairs.forEach((pair, idx) => {
+        let hName = scTeams.find(t => t.id === pair.homeId)?.name || '—';
+        let aName = scTeams.find(t => t.id === pair.awayId)?.name || '—';
+        html += `
+            <div class="sc-picker-pair">
+                <span class="sc-picker-pair-teams">🛡️ ${hName}  vs  🛡️ ${aName}</span>
+                <button class="sc-picker-remove" onclick="scRemovePair(${idx})">✕</button>
+            </div>`;
+    });
+
+    // Form to add a new pair
+    if (available.length >= 2) {
+        let opts = '<option value="">— select —</option>' + available.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        html += `
+            <div class="sc-picker-form">
+                <select id="scPickerHome" class="sc-select-input">${opts}</select>
+                <span class="sc-picker-vs">vs</span>
+                <select id="scPickerAway" class="sc-select-input">${opts}</select>
+                <button class="sc-picker-add-btn" onclick="scAddPair()">+ Pair</button>
+            </div>`;
+    } else if (available.length === 1) {
+        html += `<div class="sc-picker-hint">1 team left unpaired — they will get a bye.</div>`;
+    } else if (scPickerPairs.length === 0) {
+        html += `<div class="sc-picker-hint">All teams are paired.</div>`;
+    }
+
+    if (scPickerPairs.length > 0) {
+        html += `<div class="sc-picker-summary">${scPickerPairs.length} matchup${scPickerPairs.length > 1 ? 's' : ''} • ${available.length} team${available.length !== 1 ? 's' : ''} with a bye</div>`;
+    }
+
+    body.innerHTML = html;
+}
+
+function scAddPair() {
+    let homeId = document.getElementById('scPickerHome').value;
+    let awayId = document.getElementById('scPickerAway').value;
+    if (!homeId || !awayId) { alert('Select both teams.'); return; }
+    if (homeId === awayId) { alert('Pick two different teams.'); return; }
+    scPickerPairs.push({ homeId, awayId });
+    scRenderMatchupPicker();
+}
+
+function scRemovePair(idx) {
+    scPickerPairs.splice(idx, 1);
+    scRenderMatchupPicker();
+}
+
+function scConfirmMatchups() {
+    if (scPickerPairs.length === 0) { alert('Create at least one matchup.'); return; }
+
+    // Collect paired + unpaired teams
+    let usedIds = new Set();
+    scPickerPairs.forEach(p => { usedIds.add(p.homeId); usedIds.add(p.awayId); });
+    let byes = scTeams.filter(t => !usedIds.has(t.id));
+
+    // Total slots = pairs + byes, padded to next power of 2
+    let totalSlots = scPickerPairs.length + byes.length;
+    let pow2 = 1;
+    while (pow2 < totalSlots) pow2 *= 2;
+    let extraByes = pow2 - totalSlots;
+
+    // Build first-round matchups: each pair is a matchup, byes become solo matchups
+    let firstRound = [];
+    let slotIdx = 0;
+    scPickerPairs.forEach(pair => {
+        firstRound.push({
+            id: 'scm' + Date.now() + '-' + slotIdx++,
+            homeId: pair.homeId,
+            awayId: pair.awayId,
+            legs: [scEmptyLeg(), scEmptyLeg()],
+            winnerId: null, loserId: null, isThirdPlace: false
+        });
+    });
+    // Bye teams (only one team in the matchup)
+    byes.forEach(team => {
+        firstRound.push({
+            id: 'scm' + Date.now() + '-' + slotIdx++,
+            homeId: team.id, awayId: null,
+            legs: [scEmptyLeg(), scEmptyLeg()],
+            winnerId: null, loserId: null, isThirdPlace: false
+        });
+    });
+    // Extra byes (empty slots to fill the power-of-2 bracket)
+    for (let i = 0; i < extraByes; i++) {
+        firstRound.push({
+            id: 'scm' + Date.now() + '-' + slotIdx++,
+            homeId: null, awayId: null,
+            legs: [scEmptyLeg(), scEmptyLeg()],
+            winnerId: null, loserId: null, isThirdPlace: false
+        });
+    }
 
     let labels = scGetRoundLabels(pow2);
     scRounds = [];
-
-    // First round
-    let firstRound = [];
-    for (let i = 0; i < shuffled.length; i += 2) {
-        firstRound.push({
-            id: 'scm' + Date.now() + '-' + i,
-            homeId: shuffled[i] ? shuffled[i].id : null,
-            awayId: shuffled[i+1] ? shuffled[i+1].id : null,
-            legs: [scEmptyLeg(), scEmptyLeg()],
-            winnerId: null,
-            loserId: null,
-            isThirdPlace: false
-        });
-    }
     scRounds.push({ label: labels[0], matchups: firstRound });
 
-    // Subsequent empty rounds
     for (let r = 1; r < labels.length; r++) {
         let count = firstRound.length / Math.pow(2, r);
         let roundMatchups = [];
@@ -222,14 +314,13 @@ function scGenerateBracket() {
                 id: 'scm' + Date.now() + '-' + r + '-' + i,
                 homeId: null, awayId: null,
                 legs: [scEmptyLeg(), scEmptyLeg()],
-                winnerId: null, loserId: null,
-                isThirdPlace: false
+                winnerId: null, loserId: null, isThirdPlace: false
             });
         }
         scRounds.push({ label: labels[r], matchups: roundMatchups });
     }
 
-    // Third-place playoff: losers of the semi-finals
+    // Third-place playoff
     scThirdPlace = null;
     let sfIdx = labels.length - 2;
     if (sfIdx >= 0) {
@@ -237,11 +328,11 @@ function scGenerateBracket() {
             id: 'scm-tp-' + Date.now(),
             homeId: null, awayId: null,
             legs: [scEmptyLeg(), scEmptyLeg()],
-            winnerId: null, loserId: null,
-            isThirdPlace: true
+            winnerId: null, loserId: null, isThirdPlace: true
         };
     }
 
+    scCloseMatchupPicker();
     scPersist();
     scRenderAll();
 }
@@ -259,9 +350,12 @@ function scGetAggregate(matchup) {
 }
 
 function scDetermineWinner(matchup) {
-    if (!matchup.homeId || !matchup.awayId) return null;
-    let { aggH, aggA } = scGetAggregate(matchup);
+    if (!matchup.homeId && !matchup.awayId) return null;
+    // Bye: only one team present
+    if (matchup.homeId && !matchup.awayId) return matchup.homeId;
+    if (matchup.awayId && !matchup.homeId) return matchup.awayId;
     if (!matchup.legs[0].completed || !matchup.legs[1].completed) return null;
+    let { aggH, aggA } = scGetAggregate(matchup);
     if (aggH > aggA) return matchup.homeId;
     if (aggA > aggH) return matchup.awayId;
     // Tie — use away goals as tiebreaker
@@ -323,7 +417,7 @@ function scRenderBracket() {
             <div class="sc-bracket-empty">
                 <div class="sc-bracket-empty-icon">🏆</div>
                 <div class="sc-bracket-empty-text">No bracket generated yet.</div>
-                <div class="sc-bracket-empty-sub">${scIsAdmin ? 'Click "Generate Bracket" above to start the tournament.' : 'Check back soon for the tournament draw.'}</div>
+                <div class="sc-bracket-empty-sub">${scIsAdmin ? 'Click "Generate Bracket" above to pick matchups and start the tournament.' : 'Check back soon for the tournament draw.'}</div>
             </div>`;
         return;
     }

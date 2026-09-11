@@ -115,6 +115,17 @@
         </div>
     </div>
 
+    <!-- MATCHUP PICKER MODAL (manual bracket setup) -->
+    <div class="sc-modal-overlay" id="scMatchupPickerModal">
+        <div class="sc-modal-box" style="width:560px; max-height:88vh; overflow-y:auto;">
+            <button class="sc-close-btn" onclick="scCloseMatchupPicker()">×</button>
+            <div class="sc-modal-title">Pick First-Round Matchups</div>
+            <p class="sc-modal-desc">Select which teams play against each other in the first round. Unpaired teams get a bye.</p>
+            <div id="scMatchupPickerBody"></div>
+            <button class="sc-primary-btn" onclick="scConfirmMatchups()">✅ Create Bracket</button>
+        </div>
+    </div>
+
     <!-- MAIN CONTENT AREA -->
     <main class="sc-main">
 
@@ -123,7 +134,7 @@
             <div class="sc-bracket-header">
                 <h1 class="sc-page-title">🏆 Tournament Bracket</h1>
                 <button class="sc-action-btn" id="scManageSquadsBtn" style="display:none;" onclick="scOpenSquadModal()">⚙️ Manage Squads</button>
-                <button class="sc-action-btn" id="scGenBracketBtn" style="display:none;" onclick="scGenerateBracket()">⚡ Generate Bracket</button>
+                <button class="sc-action-btn" id="scGenBracketBtn" style="display:none;" onclick="scOpenMatchupPicker()">⚡ Generate Bracket</button>
             </div>
             <div id="scBracketContainer"></div>
         </div>

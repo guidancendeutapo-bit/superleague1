@@ -351,6 +351,38 @@ body {
 .sc-bracket-empty-text { font-size: 15px; margin-bottom: 8px; }
 .sc-bracket-empty-sub { font-size: 12px; }
 
+/* --- MATCHUP PICKER --- */
+.sc-picker-pair {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #0d0d25; border: 1px solid var(--sc-border); border-radius: 8px;
+    padding: 10px 14px; margin-bottom: 8px; font-size: 13px; font-weight: 600;
+}
+.sc-picker-pair-teams { color: var(--sc-cyan); }
+.sc-picker-remove {
+    background: none; border: none; color: var(--sc-red); font-size: 16px; cursor: pointer;
+    padding: 2px 8px; border-radius: 4px; transition: background 0.15s;
+}
+.sc-picker-remove:hover { background: rgba(239,68,68,0.15); }
+.sc-picker-form {
+    display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap;
+}
+.sc-picker-form .sc-select-input { flex: 1; min-width: 120px; }
+.sc-picker-vs { font-size: 12px; color: var(--sc-muted); font-weight: 700; }
+.sc-picker-add-btn {
+    background: linear-gradient(135deg, var(--sc-cyan), var(--sc-blue));
+    color: #0a0a1a; border: none; border-radius: 8px; padding: 10px 16px;
+    font-size: 13px; font-weight: 700; cursor: pointer; transition: transform 0.15s ease;
+}
+.sc-picker-add-btn:hover { transform: scale(1.05); }
+.sc-picker-hint {
+    font-size: 13px; color: var(--sc-muted); margin-top: 12px; text-align: center;
+    padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;
+}
+.sc-picker-summary {
+    font-size: 12px; color: var(--sc-gold); margin-top: 12px; text-align: center;
+    padding: 8px; border-top: 1px solid rgba(251,191,36,0.2);
+}
+
 /* --- RESPONSIVE --- */
 @media (max-width: 768px) {
     .sc-top-bar { flex-direction: column; gap: 12px; padding: 12px; }
