@@ -525,16 +525,41 @@ function scRenderLegDetail(match, leg) {
     const home = scTeams.find(team => team.id === leg.homeId)?.name || 'TBD';
     const away = scTeams.find(team => team.id === leg.awayId)?.name || 'TBD';
     const events = leg.events || [];
-    const eventHtml = events.length ? events.map(event => {
-        const player = scPlayers.find(item => item.id === event.playerId);
-        const name = player?.name || event.playerName || 'Unknown player';
-        if (event.type === 'assist') return `<div class="sc-goal-assist">↳ Assist: ${scEscape(name)}</div>`;
-        const label = event.type === 'ownGoal' ? 'Own goal' : event.scoringType === 'penalty' ? 'Penalty' : 'Goal';
-        return `<div class="sc-goal-entry"><span class="sc-goal-scorer">${label}: ${scEscape(name)}</span></div>`;
-    }).join('') : '<div class="sc-no-events">No goal details recorded.</div>';
+    // Build one team's column of goal lines. Own goals are attributed to the
+    // OPPONENT's column, since an own goal counts on the scoreboard for the
+    // other side — matching how the main league site displays them.
+    const buildTeamGoals = (teamId) => {
+        const lines = [];
+        events.forEach((event, index) => {
+            if (event.type !== 'goal' && event.type !== 'ownGoal') return;
+            const belongsToThisColumn = event.type === 'ownGoal' ? event.teamId !== teamId : event.teamId === teamId;
+            if (!belongsToThisColumn) return;
+            const player = scPlayers.find(item => item.id === event.playerId);
+            const name = player?.name || event.playerName || 'Unknown player';
+            const penMark = event.scoringType === 'penalty' ? ' <span class="sc-goal-pen-tag">(P)</span>' : '';
+            const ogMark = event.type === 'ownGoal' ? ' <span class="sc-goal-og-tag">(OG)</span>' : '';
+            // The assist for a goal is stored as the very next event in the array
+            // (see scSaveScore) — own goals never carry an assist.
+            const nextEvent = events[index + 1];
+            const assistName = (event.type === 'goal' && nextEvent && nextEvent.type === 'assist')
+                ? (scPlayers.find(item => item.id === nextEvent.playerId)?.name || nextEvent.playerName || null)
+                : null;
+            const assistLine = assistName ? `<div class="sc-goal-assist-inline">👟 ${scEscape(assistName)}</div>` : '';
+            lines.push(`<div class="sc-goal-line">${event.type === 'ownGoal' ? '🔴' : '⚽'} <strong>${scEscape(name)}</strong>${penMark}${ogMark}${assistLine}</div>`);
+        });
+        return lines;
+    };
+    const homeLines = buildTeamGoals(leg.homeId);
+    const awayLines = buildTeamGoals(leg.awayId);
+    const eventHtml = events.length ? `
+        <div class="sc-leg-team-headers"><span>${scEscape(home)}</span><span>${scEscape(away)}</span></div>
+        <div class="sc-leg-goals-grid">
+            <div class="sc-leg-goals-col sc-leg-goals-home">${homeLines.join('') || '<span class="sc-no-events-inline">No goals</span>'}</div>
+            <div class="sc-leg-goals-col sc-leg-goals-away">${awayLines.join('') || '<span class="sc-no-events-inline">No goals</span>'}</div>
+        </div>` : '<div class="sc-no-events">No goal details recorded.</div>';
     const score = leg.completed ? `${leg.homeScore} – ${leg.awayScore}` : 'Not played';
     const admin = scIsAdmin && leg.homeId && leg.awayId ? `<button class="sc-enter-score-link" onclick="scOpenScoreModal('${scEscape(leg.id)}')">${leg.completed ? '⚙️ Edit Score' : '✍️ Enter Score'}</button>` : '';
-    return `<section class="sc-leg-detail"><div class="sc-leg-detail-header"><span>Leg ${leg.number}</span><strong class="sc-leg-detail-score">${score}</strong><span>${leg.homeScore !== null ? `${scEscape(home)} vs ${scEscape(away)}` : `${scEscape(home)} vs ${scEscape(away)}`}</span></div><div class="sc-leg-detail-events">${eventHtml}</div>${leg.homeScore === leg.awayScore && leg.homePen !== null ? `<div class="sc-penalties">Penalties: ${leg.homePen} – ${leg.awayPen}</div>` : ''}${admin}</section>`;
+    return `<section class="sc-leg-detail"><div class="sc-leg-detail-header"><span>Leg ${leg.number}</span><strong class="sc-leg-detail-score">${score}</strong><span>${scEscape(home)} vs ${scEscape(away)}</span></div><div class="sc-leg-detail-events">${eventHtml}</div>${leg.homeScore === leg.awayScore && leg.homePen !== null ? `<div class="sc-penalties">Penalties: ${leg.homePen} – ${leg.awayPen}</div>` : ''}${admin}</section>`;
 }
 
 function scCloseLegModal() { document.getElementById('scLegModal').classList.remove('active'); }

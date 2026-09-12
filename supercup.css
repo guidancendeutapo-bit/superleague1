@@ -359,6 +359,25 @@ body {
 .sc-goal-scorer { color: var(--sc-text-bright); font-weight: 600; }
 .sc-goal-assist { color: var(--sc-muted); font-size: 12px; padding: 2px 12px 6px; }
 .sc-no-events { color: var(--sc-muted); text-align: center; padding: 20px; font-size: 14px; }
+.sc-leg-team-headers {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    padding-bottom: 8px; margin-bottom: 4px;
+}
+.sc-leg-team-headers span {
+    font-size: 11px; font-weight: 700; color: var(--sc-cyan);
+    text-transform: uppercase; letter-spacing: 1px;
+}
+.sc-leg-team-headers span:first-child { text-align: right; }
+.sc-leg-team-headers span:last-child { text-align: left; }
+.sc-leg-goals-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 13px; }
+.sc-leg-goals-col { display: flex; flex-direction: column; gap: 8px; }
+.sc-leg-goals-home { text-align: right; align-items: flex-end; }
+.sc-leg-goals-away { text-align: left; align-items: flex-start; border-left: 1px dashed var(--sc-border); padding-left: 16px; }
+.sc-goal-line { color: var(--sc-text-bright); }
+.sc-goal-assist-inline { color: var(--sc-muted); font-size: 11px; margin-top: 2px; }
+.sc-goal-pen-tag { color: var(--sc-gold); font-size: 11px; }
+.sc-goal-og-tag { color: var(--sc-red); font-size: 11px; }
+.sc-no-events-inline { color: var(--sc-muted); font-style: italic; font-size: 12px; }
 .sc-penalties { text-align: center; margin-top: 8px; font-size: 13px; color: var(--sc-gold); font-weight: 600; }
 .sc-enter-score-link {
     display: block; text-align: center; margin-top: 14px; padding: 10px;
