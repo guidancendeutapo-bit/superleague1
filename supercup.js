@@ -343,10 +343,29 @@ function scNormalizeBracket() {
 function scTieIsTwoLeg(match) { return (match.legs || []).length === 2; }
 
 function scTieAggregate(match) {
-    return (match.legs || []).reduce((aggregate, leg) => ({
-        home: aggregate.home + (Number.isFinite(leg.homeScore) ? leg.homeScore : 0),
-        away: aggregate.away + (Number.isFinite(leg.awayScore) ? leg.awayScore : 0)
-    }), { home: 0, away: 0 });
+    // IMPORTANT: the return leg of a two-leg tie swaps home/away (it's played at the
+    // other team's ground) — see scPrepareTieTeams. So leg.homeId is NOT always
+    // match.homeId. We must attribute each leg's goals to the actual team
+    // (match.homeId / match.awayId), not to whichever side of that leg happened to be
+    // labelled "home". Previously this just summed leg.homeScore/leg.awayScore blindly,
+    // which silently flipped the aggregate (and therefore the winner) whenever the
+    // return leg's scoreline swap wasn't symmetrical.
+    let homeTotal = 0;
+    let awayTotal = 0;
+    (match.legs || []).forEach(leg => {
+        const homeScore = Number.isFinite(leg.homeScore) ? leg.homeScore : 0;
+        const awayScore = Number.isFinite(leg.awayScore) ? leg.awayScore : 0;
+        if (leg.homeId && leg.homeId === match.awayId) {
+            // Return leg: this leg's "home" team is actually the tie's away team.
+            homeTotal += awayScore;
+            awayTotal += homeScore;
+        } else {
+            // First leg (or a leg not yet swapped): leg's home/away matches the tie's.
+            homeTotal += homeScore;
+            awayTotal += awayScore;
+        }
+    });
+    return { home: homeTotal, away: awayTotal };
 }
 
 function scProcessTie(match) {
@@ -362,7 +381,13 @@ function scProcessTie(match) {
     if (!winnerId) {
         const decidingLeg = legs[legs.length - 1];
         if (decidingLeg.homePen !== null && decidingLeg.awayPen !== null && decidingLeg.homePen !== decidingLeg.awayPen) {
-            winnerId = decidingLeg.homePen > decidingLeg.awayPen ? match.homeId : match.awayId;
+            // Same swap issue as the aggregate: if the deciding leg is a return leg,
+            // decidingLeg.homeId is match.awayId, so its "homePen" actually belongs to
+            // the tie's away team. Map penalty totals to the real teams before deciding.
+            const decidingLegIsSwapped = decidingLeg.homeId && decidingLeg.homeId === match.awayId;
+            const homePenTotal = decidingLegIsSwapped ? decidingLeg.awayPen : decidingLeg.homePen;
+            const awayPenTotal = decidingLegIsSwapped ? decidingLeg.homePen : decidingLeg.awayPen;
+            winnerId = homePenTotal > awayPenTotal ? match.homeId : match.awayId;
         }
     }
     if (!winnerId) {
@@ -594,8 +619,9 @@ function scSaveScore() {
 function scRenderStats() {
     const goals = {};
     const assists = {};
+    const ownGoals = {};
     scGetAllMatches().flatMap(match => match.legs || []).forEach(leg => (leg.events || []).forEach(event => {
-        const target = event.type === 'assist' ? assists : event.type === 'goal' ? goals : null;
+        const target = event.type === 'assist' ? assists : event.type === 'goal' ? goals : event.type === 'ownGoal' ? ownGoals : null;
         if (!target) return;
         target[event.playerId] = target[event.playerId] || { count: 0, name: event.playerName, teamId: event.teamId };
         target[event.playerId].count += 1;
@@ -607,6 +633,8 @@ function scRenderStats() {
     };
     document.getElementById('scTopScorers').innerHTML = render(goals, 'goals', 'goals');
     document.getElementById('scTopAssists').innerHTML = render(assists, 'assists', 'assists');
+    const ownGoalsEl = document.getElementById('scOwnGoals');
+    if (ownGoalsEl) ownGoalsEl.innerHTML = render(ownGoals, 'own goals', 'own-goals');
 }
 
 // --- NEWS ---
@@ -646,8 +674,15 @@ function scOpenSquadPopup(teamId) {
     list.innerHTML = players.length ? players.map(player => {
         let goals = 0;
         let assists = 0;
-        scGetAllMatches().flatMap(match => match.legs || []).forEach(leg => (leg.events || []).forEach(event => { if (event.playerId === player.id && event.type === 'goal') goals += 1; if (event.playerId === player.id && event.type === 'assist') assists += 1; }));
-        return `<li><span>👤 ${scEscape(player.name)}</span><span class="sc-player-stats">${goals}G / ${assists}A</span></li>`;
+        let ownGoals = 0;
+        scGetAllMatches().flatMap(match => match.legs || []).forEach(leg => (leg.events || []).forEach(event => {
+            if (event.playerId !== player.id) return;
+            if (event.type === 'goal') goals += 1;
+            else if (event.type === 'assist') assists += 1;
+            else if (event.type === 'ownGoal') ownGoals += 1;
+        }));
+        const statsText = `${goals}G / ${assists}A${ownGoals ? ` / ${ownGoals}OG` : ''}`;
+        return `<li><span>👤 ${scEscape(player.name)}</span><span class="sc-player-stats">${statsText}</span></li>`;
     }).join('') : '<div class="sc-empty">No players registered.</div>';
     document.getElementById('scSquadPopupModal').classList.add('active');
 }
