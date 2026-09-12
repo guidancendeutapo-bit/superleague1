@@ -13,7 +13,7 @@ const scFirebaseConfig = {
     databaseURL: "https://super-league-3fc14-default-rtdb.firebaseio.com"
 };
 
-const scEmptyBracket = () => ({ rounds: [], thirdPlace: null, champion: null, generated: false });
+const scEmptyBracket = () => ({ rounds: [], thirdPlace: null, champion: null, generated: false, runId: null });
 let scDb = null;
 let scTeams = [];
 let scPlayers = [];
@@ -24,6 +24,7 @@ let scActiveView = 'bracket';
 let scEditingLegId = null;
 let scGoalEntries = [];
 let scPlacementMode = false;
+let scCelebrationClicks = {};
 
 function scEscape(value) {
     return String(value ?? '').replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
@@ -39,6 +40,7 @@ function scInitFirebase() {
             scPlayers = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
             scBracket = data.bracket || scEmptyBracket();
             scNews = Array.isArray(data.news) ? data.news : Object.values(data.news || {});
+            scCelebrationClicks = data.celebrationClicks || {};
             scNormalizeBracket();
         }
         scRenderAll();
@@ -47,7 +49,7 @@ function scInitFirebase() {
 
 function scSaveData() {
     if (!scDb) return;
-    scDb.ref('superCupData').set({ teams: scTeams, players: scPlayers, bracket: scBracket, news: scNews });
+    scDb.ref('superCupData').set({ teams: scTeams, players: scPlayers, bracket: scBracket, news: scNews, celebrationClicks: scCelebrationClicks });
 }
 
 function scHandleAuth() {
@@ -260,7 +262,8 @@ function scGenerateBracket() {
             isThirdPlace: true
         },
         champion: null,
-        generated: true
+        generated: true,
+        runId: base
     };
     scPlacementMode = true;
     scSaveData();
@@ -431,11 +434,13 @@ function scRenderBracket() {
     if (!container) return;
     if (!scBracket.generated || !scBracket.rounds.length) {
         container.innerHTML = `<div class="sc-bracket-empty"><div class="sc-bracket-empty-icon">🏆</div><div class="sc-bracket-empty-text">Bracket not yet generated</div><div class="sc-bracket-empty-sub">${scIsAdmin ? 'Generate the bracket, then place teams into the first round.' : 'Check back soon for the tournament draw.'}</div></div>`;
+        scStopFireworks();
+        scUpdateCelebrateButton();
         return;
     }
 
     const champion = scBracket.champion ? scTeams.find(team => team.id === scBracket.champion) : null;
-    const championHtml = champion ? `<div class="sc-champion-card"><div class="sc-champion-trophy">🏆</div><div class="sc-champion-label">Super Cup Champion</div><div class="sc-champion-name">${scEscape(champion.name)}</div></div>` : '';
+    const championHtml = champion ? `<div class="sc-champion-card"><canvas id="scFireworksCanvas"></canvas><div class="sc-champion-trophy">🏆</div><div class="sc-champion-label">Super Cup Champion</div><div class="sc-champion-name">${scEscape(champion.name)}</div></div>` : '';
 
     const totalRounds = scBracket.rounds.length;
     const finalRound = scBracket.rounds[totalRounds - 1];
@@ -463,6 +468,8 @@ function scRenderBracket() {
     const thirdPlace = scBracket.thirdPlace;
     const thirdHtml = thirdPlace ? `<div class="sc-third-place-section"><div class="sc-third-place-title">🥉 Third Place Playoff</div>${scRenderMatchCard(thirdPlace)}</div>` : '';
     container.innerHTML = championHtml + `<div class="sc-bracket-scroll">${bracketHtml}</div>${thirdHtml}`;
+    if (champion) scStartFireworks(); else scStopFireworks();
+    scUpdateCelebrateButton();
 }
 
 function scGroupIntoPairs(matches) {
@@ -687,6 +694,171 @@ function scOpenSquadPopup(teamId) {
     document.getElementById('scSquadPopupModal').classList.add('active');
 }
 function scCloseSquadPopup() { document.getElementById('scSquadPopupModal').classList.remove('active'); }
+
+// --- CELEBRATION: CHAMPION FIREWORKS + FLOATING BUTTON ---
+function scGetChampionTeam() {
+    return scBracket.champion ? scTeams.find(team => team.id === scBracket.champion) : null;
+}
+function scCelebrationKey(teamId) {
+    // Scoped to this specific bracket run so a team that wins a later, separate
+    // cup run starts its celebration count fresh rather than inheriting an old one.
+    return `${scBracket.runId || 'default'}:${teamId}`;
+}
+function scHasCelebrated(teamId) {
+    try { return localStorage.getItem('scCelebrated:' + scCelebrationKey(teamId)) === '1'; }
+    catch (e) { return false; }
+}
+function scMarkCelebrated(teamId) {
+    try { localStorage.setItem('scCelebrated:' + scCelebrationKey(teamId), '1'); } catch (e) {}
+}
+function scUpdateCelebrateButton() {
+    const btn = document.getElementById('scCelebrateFloatingBtn');
+    if (!btn) return;
+    const champion = scGetChampionTeam();
+    if (champion) {
+        document.getElementById('scCelebrateChampionLabel').innerText = champion.name;
+        const count = scCelebrationClicks[scCelebrationKey(champion.id)] || 0;
+        document.getElementById('scCelebrateCountLabel').innerText = count.toLocaleString();
+        btn.classList.toggle('already-celebrated', scHasCelebrated(champion.id));
+        btn.style.display = 'flex';
+    } else {
+        btn.style.display = 'none';
+    }
+}
+
+// Ambient fireworks that loop gently inside the champion card
+let scFireworksAnimationId = null;
+let scFireworksParticles = [];
+let scFireworksLastBurst = 0;
+function scResizeFireworksCanvas() {
+    const canvas = document.getElementById('scFireworksCanvas');
+    const card = document.querySelector('.sc-champion-card');
+    if (!canvas || !card) return;
+    canvas.width = card.clientWidth;
+    canvas.height = card.clientHeight;
+}
+function scSpawnFireworkBurst(cx, cy) {
+    const colors = ['#eab308', '#22d3ee', '#34d399', '#fb923c', '#ffffff', '#ef4444'];
+    const count = 40 + Math.floor(Math.random() * 20);
+    for (let i = 0; i < count; i += 1) {
+        const angle = (Math.PI * 2 * i) / count;
+        const speed = 2 + Math.random() * 3;
+        scFireworksParticles.push({ x: cx, y: cy, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, alpha: 1, color: colors[Math.floor(Math.random() * colors.length)], size: 1.5 + Math.random() * 1.5 });
+    }
+}
+function scFireworksLoop(ts) {
+    const card = document.querySelector('.sc-champion-card');
+    const canvas = document.getElementById('scFireworksCanvas');
+    if (!canvas || !card) { scFireworksAnimationId = null; return; }
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!scFireworksLastBurst || ts - scFireworksLastBurst > 900) {
+        scFireworksLastBurst = ts;
+        const cx = canvas.width * (0.15 + Math.random() * 0.7);
+        const cy = canvas.height * (0.15 + Math.random() * 0.4);
+        scSpawnFireworkBurst(cx, cy);
+    }
+    scFireworksParticles.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.03; p.alpha -= 0.012; });
+    scFireworksParticles = scFireworksParticles.filter(p => p.alpha > 0);
+    scFireworksParticles.forEach(p => {
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    scFireworksAnimationId = requestAnimationFrame(scFireworksLoop);
+}
+function scStartFireworks() {
+    scResizeFireworksCanvas();
+    if (scFireworksAnimationId) return;
+    scFireworksLastBurst = 0;
+    scFireworksAnimationId = requestAnimationFrame(scFireworksLoop);
+}
+function scStopFireworks() {
+    if (scFireworksAnimationId) { cancelAnimationFrame(scFireworksAnimationId); scFireworksAnimationId = null; }
+    scFireworksParticles = [];
+}
+window.addEventListener('resize', () => { if (scFireworksAnimationId) scResizeFireworksCanvas(); });
+
+// Fullscreen burst fireworks triggered by clicking the celebrate button
+let scCelebrationBurstAnimId = null;
+let scCelebrationBurstParticles = [];
+let scCelebrationBurstEndsAt = 0;
+function scResizeCelebrationCanvas() {
+    const canvas = document.getElementById('scCelebrationBurstCanvas');
+    if (!canvas) return;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', scResizeCelebrationCanvas);
+function scSpawnCelebrationBurst(cx, cy) {
+    const colors = ['#eab308', '#22d3ee', '#34d399', '#fb923c', '#ffffff', '#ef4444'];
+    const count = 55 + Math.floor(Math.random() * 25);
+    for (let i = 0; i < count; i += 1) {
+        const angle = (Math.PI * 2 * i) / count;
+        const speed = 3 + Math.random() * 4;
+        scCelebrationBurstParticles.push({ x: cx, y: cy, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, alpha: 1, color: colors[Math.floor(Math.random() * colors.length)], size: 2 + Math.random() * 2 });
+    }
+}
+function scCelebrationBurstLoop(ts) {
+    const canvas = document.getElementById('scCelebrationBurstCanvas');
+    if (!canvas) { scCelebrationBurstAnimId = null; return; }
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    scCelebrationBurstParticles.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.alpha -= 0.011; });
+    scCelebrationBurstParticles = scCelebrationBurstParticles.filter(p => p.alpha > 0);
+    scCelebrationBurstParticles.forEach(p => {
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    if (scCelebrationBurstParticles.length > 0 || ts < scCelebrationBurstEndsAt) {
+        scCelebrationBurstAnimId = requestAnimationFrame(scCelebrationBurstLoop);
+    } else {
+        scCelebrationBurstAnimId = null;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+}
+function scTriggerCelebrationFireworks() {
+    scResizeCelebrationCanvas();
+    const canvas = document.getElementById('scCelebrationBurstCanvas');
+    scCelebrationBurstEndsAt = performance.now() + 1500;
+    const bursts = 4;
+    for (let i = 0; i < bursts; i += 1) {
+        setTimeout(() => {
+            const cx = canvas.width * (0.2 + Math.random() * 0.6);
+            const cy = canvas.height * (0.15 + Math.random() * 0.4);
+            scSpawnCelebrationBurst(cx, cy);
+        }, i * 220);
+    }
+    if (!scCelebrationBurstAnimId) scCelebrationBurstAnimId = requestAnimationFrame(scCelebrationBurstLoop);
+}
+function scHandleCelebrateClick() {
+    const champion = scGetChampionTeam();
+    if (!champion) return;
+    // The animation always plays — fans can click as many times as they like —
+    // but only the very first click per person per cup run is recorded.
+    scTriggerCelebrationFireworks();
+    const btn = document.getElementById('scCelebrateFloatingBtn');
+    btn.classList.add('celebrate-pulse');
+    setTimeout(() => btn.classList.remove('celebrate-pulse'), 400);
+    if (scHasCelebrated(champion.id)) return;
+    scMarkCelebrated(champion.id);
+    const key = scCelebrationKey(champion.id);
+    // Optimistic local bump so the click feels instant, then sync via an atomic
+    // Firebase transaction on just this one field so simultaneous clicks from
+    // other fans never clobber each other or get wiped by an admin's next save.
+    scCelebrationClicks[key] = (scCelebrationClicks[key] || 0) + 1;
+    scUpdateCelebrateButton();
+    if (scDb) {
+        scDb.ref('superCupData/celebrationClicks/' + key).transaction(current => (current || 0) + 1);
+    }
+}
 
 function scRenderAll() {
     scUpdateAdminUI();

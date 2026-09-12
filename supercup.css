@@ -305,7 +305,31 @@ body {
     text-align: center; padding: 32px 20px; margin: 0 auto 24px; max-width: 480px;
     background: linear-gradient(135deg, #1c1608, #100b28);
     border: 1px solid var(--sc-gold-dark); border-radius: 18px;
+    position: relative; overflow: hidden;
     box-shadow: 0 10px 44px rgba(251,191,36,0.16);
+}
+#scFireworksCanvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.sc-champion-card > *:not(#scFireworksCanvas) { position: relative; z-index: 2; }
+
+/* --- CELEBRATION FLOATING BUTTON --- */
+.sc-celebrate-floating-btn {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    display: flex; align-items: center; gap: 12px;
+    background: linear-gradient(135deg, #0d2418, #0a1a2e);
+    border: 1px solid var(--sc-green-dark); border-radius: 16px;
+    padding: 14px 18px; cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    transition: transform 0.15s ease; font-family: inherit;
+}
+.sc-celebrate-floating-btn:hover { transform: translateY(-2px); }
+.sc-celebrate-btn-icon { font-size: 26px; line-height: 1; }
+.sc-celebrate-btn-text { display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
+.sc-celebrate-btn-title { font-size: 13px; font-weight: 700; color: var(--sc-green); }
+.sc-celebrate-btn-sub { font-size: 11px; color: var(--sc-muted); margin-top: 2px; }
+.sc-celebrate-floating-btn.already-celebrated .sc-celebrate-btn-sub::after { content: " · you're in! ✓"; color: var(--sc-green); }
+.sc-celebrate-floating-btn.celebrate-pulse { animation: scCelebratePulse 0.4s ease; }
+@keyframes scCelebratePulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
+@media (max-width: 640px) {
+    .sc-celebrate-floating-btn { left: 16px; right: 16px; bottom: 16px; }
 }
 .sc-champion-trophy { font-size: 48px; margin-bottom: 8px; animation: scBounce 2s ease-in-out infinite; }
 @keyframes scBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }

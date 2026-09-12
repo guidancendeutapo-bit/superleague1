@@ -159,6 +159,16 @@
     </div>
 </div>
 
+<!-- CELEBRATION: FLOATING BUTTON + FULLSCREEN CLICK FIREWORKS -->
+<canvas id="scCelebrationBurstCanvas" style="position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:9998;"></canvas>
+<button id="scCelebrateFloatingBtn" class="sc-celebrate-floating-btn" style="display:none" onclick="scHandleCelebrateClick()">
+    <span class="sc-celebrate-btn-icon">🎉</span>
+    <span class="sc-celebrate-btn-text">
+        <span class="sc-celebrate-btn-title">Celebrate <span id="scCelebrateChampionLabel"></span>!</span>
+        <span class="sc-celebrate-btn-sub"><span id="scCelebrateCountLabel">0</span> fans have celebrated</span>
+    </span>
+</button>
+
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
