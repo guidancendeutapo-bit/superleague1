@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Trophy — Group Stage & Knockout</title>
+    <link rel="stylesheet" href="trophy.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0e1a">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="tc-top-bar">
+    <div class="tc-brand">
+        <div class="tc-trophy-icon">🏆</div>
+        <div class="tc-brand-text">
+            <div class="tc-brand-title">COMMUNITY TROPHY</div>
+            <div class="tc-brand-sub">Group Stage &amp; Knockout</div>
+        </div>
+    </div>
+    <div class="tc-nav-buttons">
+        <button class="tc-nav-btn active" id="tcNavGroups" onclick="tcSwitchView('groups')">🏆 Groups</button>
+        <button class="tc-nav-btn" id="tcNavStats" onclick="tcSwitchView('stats')">📊 Stats</button>
+        <button class="tc-nav-btn" id="tcNavNews" onclick="tcSwitchView('news')">📰 News</button>
+        <a href="index.html" class="tc-nav-btn tc-home-btn">🏠 Home</a>
+        <button class="tc-nav-btn tc-admin-btn" id="tcAdminToggle" onclick="tcHandleAuth()">🔐 Admin</button>
+    </div>
+</div>
+
+<!-- MAIN -->
+<div class="tc-main">
+
+    <!-- GROUPS + KNOCKOUT VIEW -->
+    <div class="tc-view active" id="tcViewGroups">
+        <div class="tc-bracket-header">
+            <button class="tc-action-btn" id="tcManageSquadsBtn" onclick="tcOpenSquadModal()" style="display:none">🛡️ Manage Squads</button>
+            <button class="tc-action-btn primary" id="tcGenFixturesBtn" onclick="tcGenerateGroupFixtures()" style="display:none">🎲 Generate Group Fixtures</button>
+            <button class="tc-action-btn" id="tcResetBtn" onclick="tcResetTournament()" style="display:none">🔄 Reset Tournament</button>
+        </div>
+        <div id="tcOverviewContainer"></div>
+    </div>
+
+    <!-- STATS VIEW -->
+    <div class="tc-view" id="tcViewStats">
+        <div class="tc-page-title">📊 Trophy Statistics</div>
+        <div class="tc-stats-grid">
+            <div class="tc-stats-card">
+                <h2>🔥 Top Scorers</h2>
+                <div id="tcTopScorers"></div>
+            </div>
+            <div class="tc-stats-card">
+                <h2>👟 Top Assists</h2>
+                <div id="tcTopAssists"></div>
+            </div>
+            <div class="tc-stats-card">
+                <h2>🥴 Own Goals</h2>
+                <div id="tcOwnGoals"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEWS VIEW -->
+    <div class="tc-view" id="tcViewNews">
+        <div class="tc-bracket-header">
+            <button class="tc-action-btn primary" id="tcPostNewsBtn" onclick="tcOpenNewsPostModal()" style="display:none">📝 Post News</button>
+        </div>
+        <div class="tc-page-title">📰 Trophy News</div>
+        <div id="tcNewsContainer"></div>
+    </div>
+
+</div>
+
+<!-- AUTH MODAL -->
+<div class="tc-modal-overlay" id="tcAuthModal">
+    <div class="tc-modal-box">
+        <button class="tc-close-btn" onclick="tcCloseAuthModal()">×</button>
+        <div class="tc-modal-title">🔐 Admin Login</div>
+        <div class="tc-modal-desc">Enter the admin password to manage the Community Trophy.</div>
+        <input type="password" class="tc-text-input" id="tcPasswordInput" placeholder="Password..." onkeydown="if(event.key==='Enter')tcValidateAdmin()">
+        <button class="tc-primary-btn" onclick="tcValidateAdmin()">Login</button>
+    </div>
+</div>
+
+<!-- SQUAD MODAL -->
+<div class="tc-modal-overlay" id="tcSquadModal">
+    <div class="tc-modal-box large">
+        <button class="tc-close-btn" onclick="tcCloseSquadModal()">×</button>
+        <div class="tc-modal-title">🛡️ Manage Squads</div>
+
+        <div style="margin-bottom:20px;">
+            <div style="font-size:14px;font-weight:700;color:var(--tc-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Teams</div>
+            <p style="font-size:12px;color:var(--tc-muted);margin-bottom:10px;line-height:1.5;">Assign exactly 3 teams to Group A and 3 to Group B before generating fixtures.</p>
+            <div class="tc-form-row">
+                <input type="text" class="tc-text-input" id="tcNewTeamName" placeholder="Team name..." onkeydown="if(event.key==='Enter')tcAddTeam()">
+                <button class="tc-action-btn primary" onclick="tcAddTeam()">+ Add</button>
+            </div>
+            <div class="tc-team-list" id="tcTeamList"></div>
+        </div>
+
+        <div>
+            <div style="font-size:14px;font-weight:700;color:var(--tc-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Players</div>
+            <div class="tc-form-row">
+                <input type="text" class="tc-text-input" id="tcNewPlayerName" placeholder="Player name..." onkeydown="if(event.key==='Enter')tcAddPlayer()">
+                <select class="tc-select-input" id="tcNewPlayerTeam">
+                    <option value="">Select team</option>
+                </select>
+                <button class="tc-action-btn primary" onclick="tcAddPlayer()">+ Add</button>
+            </div>
+            <div class="tc-player-list" id="tcPlayerList"></div>
+        </div>
+    </div>
+</div>
+
+<!-- MATCH DETAILS MODAL -->
+<div class="tc-modal-overlay" id="tcMatchModal">
+    <div class="tc-modal-box">
+        <button class="tc-close-btn" onclick="tcCloseMatchModal()">×</button>
+        <div class="tc-modal-title" id="tcMatchModalTitle">Match</div>
+        <div id="tcMatchModalBody"></div>
+    </div>
+</div>
+
+<!-- SCORE MODAL -->
+<div class="tc-modal-overlay" id="tcScoreModal">
+    <div class="tc-modal-box large">
+        <button class="tc-close-btn" onclick="tcCloseScoreModal()">×</button>
+        <div class="tc-modal-title" id="tcScoreModalTitle">Enter Score</div>
+        <div id="tcScoreModalBody"></div>
+    </div>
+</div>
+
+<!-- NEWS POST MODAL -->
+<div class="tc-modal-overlay" id="tcNewsPostModal">
+    <div class="tc-modal-box">
+        <button class="tc-close-btn" onclick="tcCloseNewsPostModal()">×</button>
+        <div class="tc-modal-title">📝 Post News</div>
+        <input type="text" class="tc-text-input" id="tcNewsHeadline" placeholder="Headline...">
+        <textarea class="tc-text-input" id="tcNewsBody" placeholder="News content..." rows="5" style="resize:vertical;min-height:100px;"></textarea>
+        <button class="tc-primary-btn" onclick="tcPublishNews()">Publish</button>
+    </div>
+</div>
+
+<!-- NEWS DETAIL MODAL -->
+<div class="tc-modal-overlay" id="tcNewsDetailModal">
+    <div class="tc-modal-box">
+        <button class="tc-close-btn" onclick="tcCloseNewsDetail()">×</button>
+        <div id="tcNewsDetailBody"></div>
+    </div>
+</div>
+
+<!-- SQUAD POPUP MODAL -->
+<div class="tc-modal-overlay" id="tcSquadPopupModal">
+    <div class="tc-modal-box">
+        <button class="tc-close-btn" onclick="tcCloseSquadPopup()">×</button>
+        <div class="tc-modal-title" id="tcSquadPopupTitle">Squad</div>
+        <ul class="tc-squad-popup-list" id="tcSquadPopupList"></ul>
+    </div>
+</div>
+
+<!-- CELEBRATION: FLOATING BUTTON + FULLSCREEN CLICK FIREWORKS -->
+<canvas id="tcCelebrationBurstCanvas" style="position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:9998;"></canvas>
+<button id="tcCelebrateFloatingBtn" class="tc-celebrate-floating-btn" style="display:none" onclick="tcHandleCelebrateClick()">
+    <span class="tc-celebrate-btn-icon">🎉</span>
+    <span class="tc-celebrate-btn-text">
+        <span class="tc-celebrate-btn-title">Celebrate <span id="tcCelebrateChampionLabel"></span>!</span>
+        <span class="tc-celebrate-btn-sub"><span id="tcCelebrateCountLabel">0</span> fans have celebrated</span>
+    </span>
+</button>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<!-- Community Trophy -->
+<script src="trophy.js"></script>
+
+</body>
+</html>
