@@ -2,12 +2,10 @@
         const SUPABASE_URL = "https://lmvqlkynafaqtwxwzkfn.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxtdnFsa3luYWZhcXR3eHd6a2ZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1NDU4NTIsImV4cCI6MjEwMTEyMTg1Mn0.Cg_GgTqyMr2mpidcbD53NpyfymH0PhTDTlwQPnJrulo";
         const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
         let teams = [];
         let players = [];
         let matches = [];
         let newsItems = [];
-
         let isAdmin = false;
         let activeAppPageId = 'dash';
         let activeLeaderboardTab = 'goals';
@@ -49,7 +47,6 @@
         let viewingSeason = '';
         let seasonRecords = [];
         let leagueBranding = { icon: null };
-
         function switchAppPage(pageId) {
             activeAppPageId = pageId;
             document.querySelectorAll(".sidebar-menu .menu-item").forEach(el => el.classList.remove("active"));
@@ -57,7 +54,6 @@
             
             document.getElementById(`nav-${pageId}`).classList.add("active");
             document.getElementById(`page-${pageId}`).classList.add("active");
-
             let headingText = pageId.charAt(0).toUpperCase() + pageId.slice(1);
             if(pageId === 'dash') headingText = "Dashboard Overview";
             if(pageId === 'table') headingText = "Standings & Statistics";
@@ -66,7 +62,6 @@
             if(pageId === 'news') headingText = "News & Updates";
             if(pageId === 'records') headingText = "Season Records";
             document.getElementById("pageMainHeading").innerText = headingText;
-
             if (pageId === 'squads') {
                 let searchBox = document.getElementById("playerSquadSearch");
                 if (searchBox) { searchBox.value = ""; searchPlayersRosterEngine(); }
@@ -80,10 +75,8 @@
                 if (panel) panel.style.display = (isAdmin && viewingSeason === currentSeason) ? 'block' : 'none';
             }
             if (pageId !== 'dash') stopFireworks();
-
             renderDashboardAll();
         }
-
         function computeDefaultSeasonLabel(d) {
             d = d || new Date();
             let y = d.getFullYear();
@@ -93,7 +86,6 @@
             let endYy = (startYear + 1) % 100;
             return startYear + '-' + (endYy < 10 ? '0' + endYy : endYy);
         }
-
         function pointWorkingVarsToSeason(label) {
             let bucket = allSeasons[label];
             if (!bucket) return;
@@ -104,7 +96,6 @@
             seasonConfig = bucket.seasonConfig && typeof bucket.seasonConfig === 'object' ? bucket.seasonConfig : { gamesPerTeam: null };
             seasonRecords = Array.isArray(bucket.records) ? bucket.records : Object.values(bucket.records || {});
         }
-
         function seasonLabelSortDesc(a, b) {
             let na = parseInt((a.match(/\d+/) || [0])[0]);
             let nb = parseInt((b.match(/\d+/) || [0])[0]);
@@ -163,28 +154,20 @@
             }
         }
         function jumpToCurrentSeason() { selectSeason(currentSeason); }
-
         async function loadAppDataFromSupabase() {
             const { data: seasonRows, error: seasonsErr } = await db.from('seasons').select('label, data');
             const { data: stateRow, error: stateErr } = await db.from('app_state').select('*').eq('id', 1).maybeSingle();
-
             if (seasonsErr) { console.error('Failed to load seasons:', seasonsErr); return; }
             if (stateErr) { console.error('Failed to load app_state:', stateErr); return; }
-
             allSeasons = {};
             (seasonRows || []).forEach(row => { allSeasons[row.label] = row.data; });
-
             if (Object.keys(allSeasons).length === 0) return; // nothing seeded yet
-
             currentSeason = (stateRow && stateRow.current_season && allSeasons[stateRow.current_season])
                 ? stateRow.current_season
                 : Object.keys(allSeasons)[0];
-
             leagueBranding = (stateRow && stateRow.league_branding) ? stateRow.league_branding : { icon: null };
             renderLeagueBranding();
-
             if (!viewingSeason || !allSeasons[viewingSeason]) viewingSeason = currentSeason;
-
             // Safety net: if currentSeason itself doesn't match any real key in the
             // database (typo, stale label, manual edit, etc.), don't silently show an
             // empty dashboard — fall back to whatever season actually exists.
@@ -196,16 +179,13 @@
                     currentSeason = viewingSeason;
                 }
             }
-
             pointWorkingVarsToSeason(viewingSeason);
             updateWeekendDropdownOptions();
             renderSeasonSelectorOptions();
             updateHistoricalBanner();
             renderDashboardAll();
         }
-
         loadAppDataFromSupabase();
-
         // Realtime: whenever seasons or app_state change (from this tab or any other
         // fan/admin's tab), just reload everything — simplest and safest given how
         // small this dataset is, and matches Firebase's original "send the whole
@@ -214,7 +194,6 @@
             .on('postgres_changes', { event: '*', schema: 'public', table: 'seasons' }, loadAppDataFromSupabase)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state' }, loadAppDataFromSupabase)
             .subscribe();
-
         async function persistDatabaseState() {
             if (viewingSeason !== currentSeason) {
                 alert("You're viewing a past season in read-only archive mode. Switch to the current season from the Season menu to make changes.");
@@ -225,7 +204,6 @@
             if (error) { console.error('Failed to save season data:', error); alert('Something went wrong saving — check your connection and try again.'); return; }
             await db.from('app_state').upsert({ id: 1, current_season: currentSeason });
         }
-
         // Celebration click counts, kept in the same {seasonLabel: {teamId: count}}
         // shape the rest of the app already expects, just sourced from Supabase now.
         async function loadCelebrationClicks() {
@@ -243,7 +221,6 @@
         db.channel('celebration-clicks-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'celebration_clicks' }, loadCelebrationClicks)
             .subscribe();
-
         async function persistLeagueBranding() {
             const { error } = await db.from('app_state').upsert({ id: 1, league_branding: leagueBranding, current_season: currentSeason });
             if (error) { console.error('Failed to save league branding:', error); alert('Something went wrong saving the icon — check your connection and try again.'); }
@@ -283,7 +260,6 @@
             persistLeagueBranding();
             renderLeagueBranding();
         }
-
         function handleAuthAction() {
             if (isAdmin) {
                 isAdmin = false;
@@ -297,9 +273,7 @@
                 document.getElementById("portalOverlay").classList.add("active");
             }
         }
-
         function closeAdminModal() { document.getElementById("portalOverlay").classList.remove("active"); }
-
         function validateAdminCredentials() {
             if (document.getElementById("portalPassword").value === "Windhoek") {
                 isAdmin = true;
@@ -319,7 +293,6 @@
                 alert("Incorrect administrative authorization passphrase.");
             }
         }
-
         function getTeamRecentForm(teamId) {
             let teamMatches = matches.filter(m => m.completed && (m.homeId === teamId || m.awayId === teamId));
             let recentGames = teamMatches.slice(-3);
@@ -335,11 +308,9 @@
                 return { result, opponentName, scoreDisplay, venue };
             });
         }
-
         function calculateStandings() {
             teams.forEach(t => { t.played = 0; t.won = 0; t.drawn = 0; t.lost = 0; t.gf = 0; t.ga = 0; t.gd = 0; t.pts = 0; });
             players.forEach(p => { p.goals = 0; p.assists = 0; p.ownGoals = 0; });
-
             matches.forEach(m => {
                 let eventsArr = Array.isArray(m.events) ? m.events : Object.values(m.events || {});
                 if (eventsArr.length > 0) {
@@ -352,7 +323,6 @@
                         }
                     });
                 }
-
                 if (m.completed) {
                     let home = teams.find(t => t.id === m.homeId);
                     let away = teams.find(t => t.id === m.awayId);
@@ -369,18 +339,15 @@
             teams.sort((a, b) => b.pts - a.pts || b.gd - a.gd);
             renderMiniLeaderboardWidgets();
         }
-
         function getTiedLeaders(list, statKey) {
             if (!list.length) return { value: 0, leaders: [] };
             let maxVal = Math.max(...list.map(p => p[statKey] || 0));
             let leaders = list.filter(p => (p[statKey] || 0) === maxVal);
             return { value: maxVal, leaders };
         }
-
         function renderMiniLeaderboardWidgets() {
             let scorerTie = getTiedLeaders(players, 'goals');
             let assistTie = getTiedLeaders(players, 'assists');
-
             if (scorerTie.value > 0 && scorerTie.leaders.length) {
                 let names = scorerTie.leaders.map(p => p.name).join(', ');
                 document.getElementById("dashTopScorerName").innerText = names;
@@ -392,7 +359,6 @@
                 document.getElementById("dashTopScorerName").innerText = "No Records Yet";
                 document.getElementById("dashTopScorerStat").innerText = "0 Goals";
             }
-
             if (assistTie.value > 0 && assistTie.leaders.length) {
                 let names = assistTie.leaders.map(p => p.name).join(', ');
                 document.getElementById("dashTopAssistorName").innerText = names;
@@ -405,7 +371,6 @@
                 document.getElementById("dashTopAssistorStat").innerText = "0 Assists";
             }
         }
-
         function toggleGameSection(sectionId) {
             let body  = document.getElementById(sectionId);
             let arrow = document.getElementById(sectionId + '-arrow');
@@ -413,7 +378,6 @@
             let collapsed = body.classList.toggle('collapsed');
             if (arrow) arrow.textContent = collapsed ? '▼' : '▲';
         }
-
         function toggleInlinePlPanelById(safeId, cardEl) {
             // Primary: find by ID
             let panel = document.getElementById('pl-panel-' + safeId);
@@ -426,20 +390,16 @@
                 if (fallback) fallback.classList.toggle("active");
             }
         }
-
         function toggleInlinePlPanel(matchId, evt) {
             toggleInlinePlPanelById(matchId, evt && (evt.currentTarget || evt.target));
         }
-
         function openMatchDetailModal(matchId) {
             let m = matches.find(x => x.id === matchId);
             if (!m) return;
-
             let hTeam = teams.find(t => t.id === m.homeId);
             let aTeam = teams.find(t => t.id === m.awayId);
             let hName = hTeam?.name || 'Home';
             let aName = aTeam?.name || 'Away';
-
             // Tag label — derive matchday number from position in sorted matches
             let validMatches = matches.filter(x => x.tag !== "GLOBAL STAT OVERRIDE ADJUSTMENT DATA");
             validMatches.sort((a, b) => {
@@ -449,13 +409,11 @@
             });
             let mIdx = validMatches.findIndex(x => x.id === matchId);
             let mdNum = mIdx >= 0 ? Math.floor(mIdx / 3) + 1 : '?';
-
             document.getElementById('mdm-tag').textContent = `MATCHDAY ${mdNum}`;
             document.getElementById('mdm-home-name').textContent = hName;
             document.getElementById('mdm-away-name').textContent = aName;
             document.getElementById('mdm-home-mgr').textContent = '👔 ' + (hTeam?.manager || 'Unknown');
             document.getElementById('mdm-away-mgr').textContent = '👔 ' + (aTeam?.manager || 'Unknown');
-
             if (m.completed) {
                 document.getElementById('mdm-scorebox').textContent = `${m.homeScore} - ${m.awayScore}`;
                 document.getElementById('mdm-scorebox').style.color = '#fff';
@@ -464,15 +422,12 @@
                 document.getElementById('mdm-scorebox').style.color = 'var(--text-muted)';
                 document.getElementById('mdm-scorebox').style.fontSize = '18px';
             }
-
             // Build stats body
             let body = document.getElementById('mdm-body');
-
             if (!m.completed) {
                 body.innerHTML = `<div class="empty-state-notice" style="padding:30px 0;">⏳ This match has not been played yet.</div>`;
             } else {
                 let eventsArr = Array.isArray(m.events) ? m.events : Object.values(m.events || {});
-
                 // Build per-team goal entries with assist links
                 let buildTeamGoals = (teamId) => {
                     let lines = [];
@@ -506,11 +461,9 @@
                     });
                     return lines;
                 };
-
                 let homeLines = buildTeamGoals(m.homeId);
                 let awayLines = buildTeamGoals(m.awayId);
                 let hasStats  = eventsArr.length > 0;
-
                 body.innerHTML = `
                     <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;padding:0 0 10px;margin-bottom:4px;">
                         <div style="text-align:right;font-size:11px;font-weight:700;color:var(--accent-cyan);text-transform:uppercase;letter-spacing:1px;">${hName}</div>
@@ -524,18 +477,14 @@
                     </div>` : '<div class="empty-state-notice">No player stats recorded for this match.</div>'}
                 `;
             }
-
             document.getElementById('matchDetailModal').classList.add('active');
         }
-
         function closeMatchDetailModal() {
             document.getElementById('matchDetailModal').classList.remove('active');
         }
-
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') closeMatchDetailModal();
+            if (e.key === 'Escape') { closeMatchDetailModal(); closeNewsDetailModal(); }
         });
-
         function openSquadPopupModal(teamId) {
             let t = teams.find(x => x.id === teamId);
             if (!t) return;
@@ -546,23 +495,19 @@
             
             let clubScorerTie = getTiedLeaders(tPlayers, 'goals');
             let clubAssistTie = getTiedLeaders(tPlayers, 'assists');
-
             document.getElementById("clubPopupTopScorer").innerText = clubScorerTie.value > 0
                 ? `${clubScorerTie.leaders.map(p => p.name).join(', ')} (${clubScorerTie.value} G)`
                 : "None Registered";
             document.getElementById("clubPopupTopAssistor").innerText = clubAssistTie.value > 0
                 ? `${clubAssistTie.leaders.map(p => p.name).join(', ')} (${clubAssistTie.value} A)`
                 : "None Registered";
-
             let rosterHtml = tPlayers.map(p => {
                 return `<li><span>👤 <strong>${p.name}</strong></span><small style="color:var(--accent-cyan); font-weight:600;">${p.goals} G / ${p.assists} A</small></li>`;
             }).join('');
-
             document.getElementById("squadPopupRosterList").innerHTML = rosterHtml || `<div class="empty-state-notice">No active player metrics assigned.</div>`;
             document.getElementById("squadPopupModal").classList.add("active");
         }
         function closeSquadPopupModal() { document.getElementById("squadPopupModal").classList.remove("active"); }
-
         function searchPlayersRosterEngine() {
             let val = document.getElementById("playerSquadSearch").value.toLowerCase().trim();
             let wrapper = document.getElementById("playerSearchEngineContainer");
@@ -572,7 +517,6 @@
                 wrapper.style.display = "none";
                 return;
             }
-
             let filtered = players.filter(p => p.name.toLowerCase().includes(val));
             if(filtered.length === 0) {
                 wrapper.innerHTML = `<div class="player-search-result-item" style="color: var(--text-muted); justify-content: center;">No registered player accounts matching "${val}".</div>`;
@@ -594,7 +538,6 @@
             }
             wrapper.style.display = "flex";
         }
-
         function openScoreModal(matchId) {
             event.stopPropagation();
             activeEditingMatchId = matchId;
@@ -603,7 +546,6 @@
             let aTeam = teams.find(t => t.id === m.awayId);
             let hName = hTeam?.name || 'Home';
             let aName = aTeam?.name || 'Away';
-
             document.getElementById("scoreModalTitle").innerText = `${hName} vs ${aName}`;
             document.getElementById("modalScoreInputsRow").innerHTML = `
                 <div style="flex:1;"><label class="form-label">${hName} Goals</label>
@@ -611,7 +553,6 @@
                 <div style="flex:1;"><label class="form-label">${aName} Goals</label>
                 <input type="number" id="modalAwayScore" class="text-field-widget" value="${m.awayScore ?? 0}" min="0" oninput="rebuildGoalEntrySection()"></div>
             `;
-
             // Parse existing events to pre-fill
             let evArr = m.events ? (Array.isArray(m.events) ? m.events : Object.values(m.events)) : [];
             // Store existing goal-assist links on window for rebuildGoalEntrySection to use
@@ -620,24 +561,20 @@
             window._scoreModalHomePlayers = players.filter(p => p.teamId === m.homeId);
             window._scoreModalAwayPlayers = players.filter(p => p.teamId === m.awayId);
             window._scoreModalAllPlayers  = [...window._scoreModalHomePlayers, ...window._scoreModalAwayPlayers];
-
             rebuildGoalEntrySection();
             let searchBox = document.getElementById("goalEntryPlayerSearch");
             if (searchBox) searchBox.value = "";
             document.getElementById("scoreLoggerModal").classList.add("active");
         }
-
         function rebuildGoalEntrySection() {
             let homeScore = parseInt(document.getElementById("modalHomeScore")?.value) || 0;
             let awayScore = parseInt(document.getElementById("modalAwayScore")?.value) || 0;
             let m = matches.find(x => x.id === window._scoreModalMatchId);
             if (!m) return;
-
             let evArr = window._scoreModalExistingEvents || [];
             let homePlayers = window._scoreModalHomePlayers || [];
             let awayPlayers = window._scoreModalAwayPlayers || [];
             let allPlayers  = window._scoreModalAllPlayers  || [];
-
             // Rebuild existing goal events into a lookup: { playerId -> [{scoringType, assistedBy}] }
             // New data model: each goal event has a goalsList array of {scoringType, assistedBy}
             // For backward compat, we read old flat events and reconstruct
@@ -652,19 +589,15 @@
                 }
                 if (e.type === 'ownGoals') existingOG[e.playerId] = e.count || 0;
             });
-
             let makePlayerSection = (teamPlayers, teamName, teamSide, totalGoals) => {
                 if (teamPlayers.length === 0 && totalGoals === 0) return '';
-
                 // All players from BOTH sides available as assisters (excluding scorer for that row)
                 let assistOptions = (excludeId) => allPlayers.map(p =>
                     `<option value="${p.id}" ${''}>👤 ${p.name} (${teams.find(t=>t.id===p.teamId)?.name||''})</option>`
                 ).join('');
-
                 let rows = teamPlayers.map(p => {
                     let goals = existingGoals[p.id] || [];
                     let og = existingOG[p.id] || 0;
-
                     let goalRows = goals.map((gl, gi) => `
                         <div class="goal-entry-row" data-player-id="${p.id}" data-goal-index="${gi}" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:center;background:#05070a;border:1px solid var(--border-color);border-radius:6px;padding:8px 10px;margin-bottom:6px;">
                             <div style="font-size:12px;color:#fff;">⚽ <strong>${p.name}</strong> — Goal ${gi+1}</div>
@@ -677,14 +610,12 @@
                                 ${allPlayers.filter(x=>x.id!==p.id).map(x=>`<option value="${x.id}" ${gl.assistedBy===x.id?'selected':''}>${x.name} (${teams.find(t=>t.id===x.teamId)?.name||''})</option>`).join('')}
                             </select>
                         </div>`).join('');
-
                     // Own goals row
                     let ogRow = `
                         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:12px;color:var(--text-muted);">
                             <span style="flex:1;">🔴 ${p.name} — Own Goals</span>
                             <input type="number" class="stat-input-small og-input" data-player-id="${p.id}" value="${og}" min="0" style="width:60px;text-align:center;">
                         </div>`;
-
                     // Goal count input per player
                     let goalCountRow = `
                         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;background:#0b1520;border:1px solid var(--border-color);border-radius:6px;padding:8px 10px;">
@@ -695,10 +626,8 @@
                             <input type="number" class="stat-input-small og-input" data-player-id="${p.id}" value="${og}" min="0" style="width:55px;text-align:center;">
                         </div>
                         ${goalRows}`;
-
                     return `<div class="goal-entry-player-block" data-player-name="${p.name.toLowerCase()}" data-has-goals="${(goals.length > 0 || og > 0) ? '1' : '0'}">${goalCountRow}</div>`;
                 }).join('');
-
                 return `
                     <div style="margin-bottom:18px;">
                         <div style="font-size:11px;font-weight:800;color:var(--accent-cyan);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border-color);">
@@ -707,24 +636,19 @@
                         ${rows || '<div style="color:var(--text-muted);font-size:12px;padding:6px 0;">No players registered for this team.</div>'}
                     </div>`;
             };
-
             let homeGoals = parseInt(document.getElementById("modalHomeScore")?.value) || 0;
             let awayGoals = parseInt(document.getElementById("modalAwayScore")?.value) || 0;
             let hName = teams.find(t => t.id === m.homeId)?.name || 'Home';
             let aName = teams.find(t => t.id === m.awayId)?.name || 'Away';
-
             document.getElementById("modalGoalEntrySection").innerHTML =
                 makePlayerSection(homePlayers, hName, 'home', homeGoals) +
                 makePlayerSection(awayPlayers, aName, 'away', awayGoals);
-
             filterGoalEntryPlayers();
         }
-
         function filterGoalEntryPlayers() {
             let term = (document.getElementById("goalEntryPlayerSearch")?.value || "").toLowerCase().trim();
             let section = document.getElementById("modalGoalEntrySection");
             if (!section) return;
-
             let anyVisibleTotal = 0;
             section.querySelectorAll(".goal-entry-player-block").forEach(block => {
                 let name = block.getAttribute("data-player-name") || "";
@@ -733,7 +657,6 @@
                 block.style.display = show ? "" : "none";
                 if (show) anyVisibleTotal++;
             });
-
             // Hide a team's section heading + empty-state message entirely if every player in it is filtered out
             section.querySelectorAll(":scope > div").forEach(teamSection => {
                 let blocks = teamSection.querySelectorAll(".goal-entry-player-block");
@@ -741,24 +664,19 @@
                 let anyVisible = Array.from(blocks).some(b => b.style.display !== "none");
                 teamSection.style.display = anyVisible ? "" : "none";
             });
-
             let hint = document.getElementById("goalEntrySearchHint");
             if (hint) hint.style.display = (anyVisibleTotal === 0) ? "block" : "none";
         }
-
         function onPlayerGoalCountChange(input) {
             let pId = input.getAttribute('data-player-id');
             let count = parseInt(input.value) || 0;
-
             // Update existingGoals for this player
             let existing = (window._scoreModalExistingEvents || []);
             let evIdx = existing.findIndex(e => e.playerId === pId && e.type === 'goals');
             let currentGoals = evIdx >= 0 && existing[evIdx].goalsList ? existing[evIdx].goalsList : [];
-
             // Resize array
             while (currentGoals.length < count) currentGoals.push({ scoringType: 'regular', assistedBy: '' });
             currentGoals = currentGoals.slice(0, count);
-
             if (evIdx >= 0) {
                 existing[evIdx].goalsList = currentGoals;
                 existing[evIdx].count = count;
@@ -768,9 +686,7 @@
             window._scoreModalExistingEvents = existing;
             rebuildGoalEntrySection();
         }
-
         function closeScoreModal() { document.getElementById("scoreLoggerModal").classList.remove("active"); activeEditingMatchId = null; }
-
         function saveMatchEventsData() {
             if (!activeEditingMatchId || !isAdmin) return;
             let m = matches.find(x => x.id === activeEditingMatchId);
@@ -778,9 +694,7 @@
             m.awayScore = parseInt(document.getElementById("modalAwayScore").value) || 0;
             m.completed = true;
             m.events = [];
-
             let section = document.getElementById("modalGoalEntrySection");
-
             // Collect per-player goal rows
             let playerGoalMap = {}; // playerId -> [ {scoringType, assistedBy} ]
             section.querySelectorAll('.goal-entry-row').forEach(row => {
@@ -791,7 +705,6 @@
                     assistedBy:  row.querySelector('.assist-sel').value
                 });
             });
-
             // Build events from goal map
             Object.entries(playerGoalMap).forEach(([pId, goals]) => {
                 if (goals.length === 0) return;
@@ -820,7 +733,6 @@
                     }
                 });
             });
-
             // Collect own goals
             section.querySelectorAll('.og-input').forEach(inp => {
                 let pId = inp.getAttribute('data-player-id');
@@ -831,11 +743,9 @@
                     m.events.push({ playerId: pId, playerName: ogPlayer ? ogPlayer.name : null, teamId: ogTeamId, type: 'ownGoals', count: og });
                 }
             });
-
             persistDatabaseState();
             closeScoreModal();
         }
-
         function addNewTeamAction() {
             let inputName = document.getElementById("newTeamInput");
             let inputManager = document.getElementById("newTeamManagerInput");
@@ -865,7 +775,6 @@
                 return eventsArr.some(e => e.playerId === playerId);
             });
         }
-
         function registerNewPlayer() {
             let nameInput = document.getElementById("playerNameInput");
             let teamSelect = document.getElementById("playerTeamSelect");
@@ -874,7 +783,6 @@
             nameInput.value = "";
             persistDatabaseState();
         }
-
         function openPlayerEditModal(playerId) {
             let p = players.find(x => x.id === playerId);
             if (!p) return;
@@ -884,11 +792,9 @@
             teamSel.innerHTML = '<option value="">— Free Agent (no club) —</option>' + teams.map(t => '<option value="' + t.id + '"' + (t.id === p.teamId ? ' selected' : '') + '>' + t.name + '</option>').join('');
             document.getElementById("editPlayerModal").classList.add("active");
         }
-
         function closePlayerEditModal() {
             document.getElementById("editPlayerModal").classList.remove("active");
         }
-
         function savePlayerEdit() {
             let id     = document.getElementById("editPlayerId").value;
             let name   = document.getElementById("editPlayerName").value.trim();
@@ -935,7 +841,6 @@
             }
             persistDatabaseState();
         }
-
         function defaultDoubleRoundRobinLength() {
             let n = teams.filter(t => t.id !== 'dummy-bye').length;
             if (n < 2) return 0;
@@ -967,7 +872,6 @@
             switchAdminSubTabDesignRender();
             alert("✅ Season length updated. The system will track progress toward this target and stop auto-generating fixtures once every club reaches it.");
         }
-
         async function updateCurrentSeasonLabel() {
             let raw = document.getElementById("currentSeasonLabelInput").value.trim();
             if (!raw) return alert("Enter a season label, e.g. 2026-27");
@@ -987,34 +891,30 @@
             renderDashboardAll();
             alert("✅ Season label updated to " + raw);
         }
-
         function startNewLeagueSeason() {
             let raw = document.getElementById("newSeasonLabelInput").value.trim();
             if (!raw) return alert("Enter a label for the new season, e.g. 2027-28");
             if (allSeasons[raw]) return alert('A season labeled "' + raw + '" already exists.');
             if (!confirm(`Start the ${raw} season? This will archive all current fixtures, news and results under "${currentSeason}" (still browsable from the Season menu) and begin a fresh fixture list for ${raw}. Clubs and players carry over with their stats reset to zero.`)) return;
-
             // Freeze the season that's ending, exactly as it stands right now.
-            allSeasons[currentSeason] = { teams, players, matches, newsItems, seasonConfig };
-
+            allSeasons[currentSeason] = { teams, players, matches, newsItems, seasonConfig, records: seasonRecords };
             // The new season starts with the same roster but a clean slate of fixtures/news.
             let carriedTeams = teams.filter(t => t.id !== 'dummy-bye').map(t => Object.assign({}, t, {
                 played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, gd: 0, pts: 0
             }));
             let carriedPlayers = players.map(p => Object.assign({}, p, { goals: 0, assists: 0, ownGoals: 0 }));
-
             allSeasons[raw] = {
                 teams: carriedTeams,
                 players: carriedPlayers,
                 matches: [],
                 newsItems: [],
-                seasonConfig: { gamesPerTeam: null }
+                seasonConfig: { gamesPerTeam: null },
+                records: []
             };
-
             currentSeason = raw;
             viewingSeason = raw;
             pointWorkingVarsToSeason(raw);
-            saveLeagueData();
+            persistDatabaseState();
             renderSeasonSelectorOptions();
             updateHistoricalBanner();
             updateWeekendDropdownOptions();
@@ -1022,17 +922,13 @@
             renderDashboardAll();
             alert(`🏁 Welcome to the ${raw} season!`);
         }
-
         function autoGenerateFixtures() {
             if (teams.length < 2) return alert("Add at least 2 clubs first.");
             if (!confirm("Generate upcoming fixtures? Completed matches are kept. Only unplayed fixtures will be replaced.")) return;
-
             // Keep completed matches + the stat override record
             matches = matches.filter(m => m.completed || m.tag === "GLOBAL STAT OVERRIDE ADJUSTMENT DATA");
-
             let allTeams = teams.filter(t => t.id !== 'dummy-bye');
             let n = allTeams.length;
-
             // ── Berger circle round-robin ──
             // Generates every team playing every other team exactly once per leg
             let pool = [...allTeams];
@@ -1041,7 +937,6 @@
             let totalRounds = sz - 1;
             let fixed = pool[0];
             let rotating = pool.slice(1);
-
             // Generate all rounds for first leg
             let leg1 = [];
             for (let r = 0; r < totalRounds; r++) {
@@ -1061,20 +956,16 @@
                 }
                 leg1.push(round);
             }
-
             // Second leg = swap home/away
             let leg2 = leg1.map(round => round.map(p => ({ h: p.a, a: p.h })));
-
             // Full schedule = leg1 + leg2
             let allRounds = [...leg1, ...leg2];
-
             // ── Determine which rounds are already fully played ──
             // Build set of played pairs (sorted) → set of round-robin round indices played
             let playedPairs = new Set();
             matches.filter(m => m.completed).forEach(m => {
                 playedPairs.add([m.homeId, m.awayId].sort().join('|'));
             });
-
             // Find first leg round index for each played pair
             let leg1PlayedSet = new Set();
             leg1.forEach((round, rIdx) => {
@@ -1086,16 +977,13 @@
                 let allInRoundPlayed = round.every(p => playedPairs.has([p.h.id, p.a.id].sort().join('|')));
                 if (allInRoundPlayed) leg2PlayedSet.add(rIdx);
             });
-
             // Build remaining rounds in order
             let remainingRounds = [];
             leg1.forEach((round, rIdx) => { if (!leg1PlayedSet.has(rIdx)) remainingRounds.push(round); });
             leg2.forEach((round, rIdx) => { if (!leg2PlayedSet.has(rIdx)) remainingRounds.push(round); });
-
             if (remainingRounds.length === 0) {
                 return alert("All fixtures for both legs have been completed! The full season is done.");
             }
-
             // ── Respect admin-configured season length (games per team) ──
             let seasonTarget = currentSeasonTarget();
             if (seasonTarget > 0) {
@@ -1108,7 +996,6 @@
                     remainingRounds = remainingRounds.slice(0, roundsAllowed);
                 }
             }
-
             // ── Enforce rest: a team that played first (home) last matchday cannot play home first next matchday ──
             // Track which team played home position in each completed matchday
             let validCompleted = matches.filter(m => m.completed && m.tag !== "GLOBAL STAT OVERRIDE ADJUSTMENT DATA");
@@ -1129,7 +1016,6 @@
                 // First match in group = the one that played first slot
                 if (lastGroup.length > 0) lastMatchdayHomeIds.add(lastGroup[0].homeId);
             }
-
             // For each remaining round, rotate fixture order so the team that rested goes first
             remainingRounds = remainingRounds.map(round => {
                 // Sort: push any match where homeId was in last matchday's first slot to end
@@ -1139,7 +1025,6 @@
                     return aRested - bRested;
                 });
             });
-
             // ── Determine next matchday number ──
             let usedNums = validCompleted.map(m => {
                 let gm = m.tag.match(/\d+/);
@@ -1148,7 +1033,6 @@
             // We now regroup into matchdays of 3 to get how many sequential matchdays exist
             let totalPlayedMatchdays = Math.ceil(validCompleted.length / 3);
             let nextMdNum = totalPlayedMatchdays + 1;
-
             // ── Push new fixtures ──
             remainingRounds.forEach((round, i) => {
                 let mdNum = nextMdNum + i;
@@ -1166,12 +1050,10 @@
                     });
                 });
             });
-
             persistDatabaseState();
             renderDashboardAll();
             alert(`✅ Generated ${remainingRounds.length} matchday(s) — Matchday ${nextMdNum} to Matchday ${nextMdNum + remainingRounds.length - 1}. Each team plays every other team once per leg with rest enforced.`);
         }
-
         function toggleManualMatchModal(open) {
             if(open) {
                 let hDropdown = document.getElementById("selHomeTeam"), aDropdown = document.getElementById("selAwayTeam");
@@ -1194,7 +1076,6 @@
         function setMatchFilter(t) { matchFilterState = t; document.querySelectorAll(".filter-btn-group button").forEach(b => b.classList.remove("active")); event.currentTarget.classList.add("active"); renderDashboardAll(); }
         function switchLeaderboardTab(t) { activeLeaderboardTab = t; document.querySelectorAll("#leadTabs .tab-btn").forEach(b => b.classList.remove("active")); event.currentTarget.classList.add("active"); renderLeaderboardOnly(); }
         function switchAdminSubTab(t) { activeAdminSubTab = t; switchAdminSubTabDesignRender(); }
-
         function switchAdminSubTabDesignRender() {
             let inputCol = document.getElementById("adminPanelInputColumn");
             document.querySelectorAll(".panel-tab-pill-box .pill-btn").forEach(b => b.classList.remove("active"));
@@ -1275,7 +1156,6 @@
             }
             renderDashboardAll();
         }
-
         function updateWeekendDropdownOptions() {
             let selector = document.getElementById("weekendFilterSelect");
             if(!selector) return;
@@ -1283,7 +1163,6 @@
             [...new Set(matches.map(m => m.tag))].forEach(t => { if(t !== "GLOBAL STAT OVERRIDE ADJUSTMENT DATA") selector.add(new Option(t, t)); });
             if([...selector.options].some(o => o.value === val)) selector.value = val;
         }
-
         function renderLeaderboardOnly() {
             let sorted = [...players].filter(p => p[activeLeaderboardTab] > 0).sort((a,b) => b[activeLeaderboardTab] - a[activeLeaderboardTab]);
             document.getElementById("leaderboardContent").innerHTML = sorted.length === 0 ? `<div class="empty-state-notice">No milestone stats records matching logged criteria.</div>` : 
@@ -1291,7 +1170,6 @@
                     return `<li class="leaderboard-row ${idx===0?'top-tier-highlight':''}"><span><strong>${p.name}</strong> (${teams.find(t=>t.id===p.teamId)?.name || 'FA'})</span><span class="col-green">${p[activeLeaderboardTab]}</span></li>`;
                 }).join('') + `</ul>`;
         }
-
         // ---- NEWS FUNCTIONS ----
         const newsCategoryMeta = {
             announcement: { label: '📢 Announcement', cls: 'news-cat-announcement' },
@@ -1299,25 +1177,20 @@
             transfer:     { label: '🔄 Transfer',     cls: 'news-cat-transfer' },
             general:      { label: '📌 General',      cls: 'news-cat-general' },
         };
-
         async function generateAINewsOptions() {
             let prompt = document.getElementById("aiNewsPrompt").value.trim();
             if (!prompt) return alert("Please describe what the news is about first.");
-
             let btn = document.getElementById("aiGenerateBtn");
             let container = document.getElementById("aiOptionsContainer");
             let list = document.getElementById("aiOptionsList");
-
             btn.innerText = "⏳ Generating...";
             btn.disabled = true;
             container.style.display = "none";
             list.innerHTML = "";
-
             // Build context from current league data
             let teamNames = teams.map(t => t.name).join(", ");
             let systemPrompt = `You are a sports news writer for a school soccer league called Super League. The teams in the league are: ${teamNames || "various teams"}. Write in a clear, energetic, school-appropriate tone. Always respond with ONLY a JSON array of exactly 3 objects, each with "headline" and "body" fields. No extra text, no markdown.`;
             let userPrompt = `Write 3 different versions of a news post about this: "${prompt}". Each version should have a different tone — one formal/official, one exciting/energetic, one short and punchy. Return only a JSON array like: [{"headline":"...","body":"..."},{"headline":"...","body":"..."},{"headline":"...","body":"..."}]`;
-
             try {
                 // Try direct API first (works when hosted online), fallback to proxy for local use
                 let response, data;
@@ -1327,7 +1200,6 @@
                     system: systemPrompt,
                     messages: [{ role: "user", content: userPrompt }]
                 });
-
                 try {
                     response = await fetch("https://api.anthropic.com/v1/messages", {
                         method: "POST",
@@ -1345,18 +1217,15 @@
                     });
                     data = await response.json();
                 }
-
                 let raw = data.content.map(i => i.text || "").join("").trim();
                 raw = raw.replace(/```json|```/g, "").trim();
                 let options = JSON.parse(raw);
-
                 list.innerHTML = options.map((opt, i) => `
                     <div onclick="selectAIOption(${i})" id="ai-opt-${i}" style="background:#0b1520; border:1px solid var(--border-color); border-radius:8px; padding:12px; cursor:pointer; transition:border-color 0.2s;">
                         <div style="font-size:11px; font-weight:700; color:var(--accent-cyan); margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Option ${i+1}</div>
                         <div style="font-size:13px; font-weight:700; color:#fff; margin-bottom:6px;">${opt.headline}</div>
                         <div style="font-size:12px; color:#94a3b8; line-height:1.5;">${opt.body}</div>
                     </div>`).join("");
-
                 // Store options for selection
                 window._aiNewsOptions = options;
                 container.style.display = "block";
@@ -1364,11 +1233,9 @@
                 alert("AI generation failed. Please check your connection and try again.");
                 console.error(err);
             }
-
             btn.innerText = "✨ Generate Options";
             btn.disabled = false;
         }
-
         function selectAIOption(index) {
             let opt = window._aiNewsOptions[index];
             if (!opt) return;
@@ -1380,7 +1247,6 @@
                 el.style.background  = i === index ? "rgba(6,182,212,0.08)" : "#0b1520";
             });
         }
-
         function publishNewsPost() {
             if (!isAdmin) return;
             let title = document.getElementById("newsTitle").value.trim();
@@ -1394,7 +1260,6 @@
             renderNewsPage();
             renderNewsTicker();
         }
-
         function deleteNewsPost(id) {
             if (!isAdmin || !confirm("Delete this news post?")) return;
             newsItems = newsItems.filter(n => n.id !== id);
@@ -1402,9 +1267,23 @@
             renderNewsPage();
             renderNewsTicker();
         }
-
         let _lastSeenNewsCount = 0; try { _lastSeenNewsCount = parseInt(localStorage.getItem('slNewsCount') || '0'); } catch(e) {}
-
+        function openNewsDetailModal(id) {
+            let item = newsItems.find(n => n.id === id);
+            if (!item) return;
+            let meta = newsCategoryMeta[item.category] || newsCategoryMeta.general;
+            document.getElementById("newsDetailBody").innerHTML =
+                '<span class="news-category-badge ' + meta.cls + '">' + meta.label + '</span>' +
+                '<div class="news-card-title" style="font-size:20px;margin-top:10px;">' + item.title + '</div>' +
+                '<div class="news-card-body" style="margin-top:12px;">' + item.body.replace(/\n/g, '<br>') + '</div>' +
+                '<div class="news-card-meta" style="margin-top:16px;"><span>🗓️ ' + item.date + '</span>' +
+                (isAdmin ? '<button class="news-delete-btn" onclick="closeNewsDetailModal();deleteNewsPost(\'' + item.id + '\')">🗑 Delete</button>' : '') +
+                '</div>';
+            document.getElementById("newsDetailModal").classList.add("active");
+        }
+        function closeNewsDetailModal() {
+            document.getElementById("newsDetailModal").classList.remove("active");
+        }
         function renderNewsPage() {
             let container = document.getElementById("newsFeedContainer");
             if (!container) return;
@@ -1414,22 +1293,22 @@
                 container.innerHTML = '<div class="empty-state-notice">No news posts yet.</div>';
                 return;
             }
+            // Summary cards only — clicking one opens the full post in a popup,
+            // so the feed page itself stays short instead of a long scroll of
+            // full article text.
             let cardsHtml = newsItems.map(n => {
                 let meta = newsCategoryMeta[n.category] || newsCategoryMeta.general;
-                return '<div class="news-card">' +
+                return '<div class="news-card" style="cursor:pointer;" onclick="openNewsDetailModal(\'' + n.id + '\')">' +
                     '<span class="news-category-badge ' + meta.cls + '">' + meta.label + '</span>' +
                     '<div class="news-card-title">' + n.title + '</div>' +
-                    '<div class="news-card-body">' + n.body.replace(/\n/g, '<br>') + '</div>' +
                     '<div class="news-card-meta">' +
                         '<span>🗓️ ' + n.date + '</span>' +
-                        (isAdmin ? '<button class="news-delete-btn" onclick="deleteNewsPost(\'' + n.id + '\')">🗑 Delete</button>' : '') +
+                        (isAdmin ? '<button class="news-delete-btn" onclick="event.stopPropagation();deleteNewsPost(\'' + n.id + '\')">🗑 Delete</button>' : '') +
                     '</div>' +
                 '</div>';
             }).join('');
-            // 2-col grid for cards
             container.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">' + cardsHtml + '</div>';
         }
-
         function saveRecordAction() {
             if (!isAdmin) return;
             if (viewingSeason !== currentSeason) return alert("You're viewing a past season in read-only archive mode. Switch to the current season to log records.");
@@ -1450,7 +1329,6 @@
             persistDatabaseState();
             renderRecordsPage();
         }
-
         function editRecordAction(id) {
             if (!isAdmin) return;
             let rec = seasonRecords.find(r => r.id === id);
@@ -1465,7 +1343,6 @@
             document.getElementById("recordCancelEditBtn").style.display = "inline-block";
             document.getElementById("recordsAdminPostPanel").scrollIntoView({ behavior: "smooth", block: "start" });
         }
-
         function cancelRecordEdit() {
             document.getElementById("recordEditingId").value = "";
             document.getElementById("recordTitle").value = "";
@@ -1476,14 +1353,12 @@
             document.getElementById("recordSaveBtn").innerText = "📤 Save Record";
             document.getElementById("recordCancelEditBtn").style.display = "none";
         }
-
         function deleteRecordAction(id) {
             if (!isAdmin || !confirm("Delete this record?")) return;
             seasonRecords = seasonRecords.filter(r => r.id !== id);
             persistDatabaseState();
             renderRecordsPage();
         }
-
         function renderRecordsPage() {
             let container = document.getElementById("recordsFeedContainer");
             if (!container) return;
@@ -1507,7 +1382,6 @@
             }).join('');
             container.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">' + cardsHtml + '</div>';
         }
-
         function updateNewsBell() {
             let badge = document.getElementById("newsBellBadge");
             if (!badge) return;
@@ -1519,13 +1393,11 @@
                 badge.style.display = 'none';
             }
         }
-
         function clearNewsBadge() {
             _lastSeenNewsCount = newsItems.length;
             try { localStorage.setItem('slNewsCount', newsItems.length); } catch(e){}
             updateNewsBell();
         }
-
         function renderNewsTicker() {
             let ticker = document.getElementById("dashNewsTicker");
             let tickerText = document.getElementById("dashNewsTickerText");
@@ -1537,7 +1409,6 @@
             updateNewsBell();
         }
         // ---- END NEWS FUNCTIONS ----
-
         function filterAdminPlayerList() {
             let query = (document.getElementById('adminPlayerSearchInput')?.value || '').toLowerCase().trim();
             let listEl = document.getElementById('adminPanelListingItems');
@@ -1566,7 +1437,6 @@
                         </div>
                     </li>`).join('');
         }
-
         // ---- CHAMPIONSHIP FIREWORKS ANIMATION ----
         let fireworksAnimationId = null;
         let fireworksParticles = [];
@@ -1603,14 +1473,12 @@
             }
             let ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
             if (!fireworksLastBurst || ts - fireworksLastBurst > 900) {
                 fireworksLastBurst = ts;
                 let cx = canvas.width * (0.15 + Math.random() * 0.7);
                 let cy = canvas.height * (0.15 + Math.random() * 0.4);
                 spawnFireworkBurst(cx, cy);
             }
-
             fireworksParticles.forEach(p => {
                 p.x += p.vx;
                 p.y += p.vy;
@@ -1618,7 +1486,6 @@
                 p.alpha -= 0.012;
             });
             fireworksParticles = fireworksParticles.filter(p => p.alpha > 0);
-
             fireworksParticles.forEach(p => {
                 ctx.globalAlpha = Math.max(0, p.alpha);
                 ctx.fillStyle = p.color;
@@ -1627,7 +1494,6 @@
                 ctx.fill();
             });
             ctx.globalAlpha = 1;
-
             fireworksAnimationId = requestAnimationFrame(fireworksLoop);
         }
         function startFireworks() {
@@ -1643,7 +1509,6 @@
             if (canvas) { let ctx = canvas.getContext('2d'); if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height); }
         }
         window.addEventListener('resize', () => { if (fireworksAnimationId) resizeFireworksCanvas(); });
-
         // ---- FLOATING CELEBRATE BUTTON + FULLSCREEN CLICK FIREWORKS ----
         function getChampionTeam() {
             let realTeams = teams.filter(t => t.id !== 'dummy-bye');
@@ -1671,7 +1536,6 @@
                 btn.style.display = 'none';
             }
         }
-
         let celebrationBurstAnimId = null;
         let celebrationBurstParticles = [];
         let celebrationBurstEndsAt = 0;
@@ -1703,7 +1567,6 @@
             if (!canvas) { celebrationBurstAnimId = null; return; }
             let ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
             celebrationBurstParticles.forEach(p => {
                 p.x += p.vx;
                 p.y += p.vy;
@@ -1711,7 +1574,6 @@
                 p.alpha -= 0.011;
             });
             celebrationBurstParticles = celebrationBurstParticles.filter(p => p.alpha > 0);
-
             celebrationBurstParticles.forEach(p => {
                 ctx.globalAlpha = Math.max(0, p.alpha);
                 ctx.fillStyle = p.color;
@@ -1720,7 +1582,6 @@
                 ctx.fill();
             });
             ctx.globalAlpha = 1;
-
             if (celebrationBurstParticles.length > 0 || ts < celebrationBurstEndsAt) {
                 celebrationBurstAnimId = requestAnimationFrame(celebrationBurstLoop);
             } else {
@@ -1745,18 +1606,14 @@
         function handleCelebrateClick() {
             let champion = getChampionTeam();
             if (!champion) return;
-
             // The animation always plays — fans can click as many times as they
             // like — but only the very first click per season/team is recorded.
             triggerCelebrationFireworks();
-
             let btn = document.getElementById('celebrateFloatingBtn');
             btn.classList.add('celebrate-pulse');
             setTimeout(() => btn.classList.remove('celebrate-pulse'), 400);
-
             if (hasCelebratedSeason(viewingSeason, champion.id)) return;
             markCelebratedSeason(viewingSeason, champion.id);
-
             // Optimistic local bump so the click feels instant, then sync via
             // an atomic RPC call so simultaneous clicks from other fans
             // never clobber each other.
@@ -1766,12 +1623,9 @@
             db.rpc('increment_celebration', { p_season: viewingSeason, p_team: champion.id })
                 .then(({ error }) => { if (error) console.error('Failed to save celebration click:', error); });
         }
-
-
         function renderDashboardAll() {
             calculateStandings();
             updateCelebrateButton();
-
             let seasonDone = isSeasonComplete();
             let makeTableRows = () => teams.map((t, idx) => {
                 let pos = idx + 1;
@@ -1783,7 +1637,6 @@
                     else if(historicalPositionsCache[t.id] < pos) trend = '<span class="trend-icon trend-down">▼</span>';
                 }
                 historicalPositionsCache[t.id] = pos;
-
                 let formBadges = getTeamRecentForm(t.id).map(({ result, opponentName, scoreDisplay }) => {
                     let cls = result === 'W' ? 'win' : (result === 'D' ? 'draw' : 'loss');
                     let resCls = result === 'W' ? 'tt-result-w' : (result === 'D' ? 'tt-result-d' : 'tt-result-l');
@@ -1795,7 +1648,6 @@
                     </div></span>`;
                 }).join('');
                 if(!formBadges) formBadges = '<span style="color:var(--text-muted); font-size:11px;">-</span>';
-
                 return `<tr class="${cls}">
                     <td><span class="pos-num">${pos}${trend}</span></td>
                     <td><strong>${t.name}${(seasonDone && pos===1) ? ' <span title="Champions">🏆</span>' : ''}${(seasonDone && pos===teams.length && teams.length>1) ? ' <span class="relegation-badge" title="Relegated">R</span>' : ''}</strong></td>
@@ -1810,10 +1662,8 @@
                     <td class="col-center"><div class="form-trend-flex-container">${formBadges}</div></td>
                 </tr>`;
             }).join('');
-
             if(activeAppPageId === 'dash') document.getElementById("dashStandingsBody").innerHTML = makeTableRows() || `<tr><td colspan="11" class="empty-state-notice">No club profiles logged.</td></tr>`;
             if(activeAppPageId === 'table') document.getElementById("fullStandingsBody").innerHTML = makeTableRows() || `<tr><td colspan="11" class="empty-state-notice">No club profiles logged.</td></tr>`;
-
             let generateFixtureRowCard = (m) => {
                 let hTeam = teams.find(t => t.id === m.homeId);
                 let aTeam = teams.find(t => t.id === m.awayId);
@@ -1823,25 +1673,20 @@
                 let aManager = aTeam?.manager || 'Unknown';
                 let center = m.completed ? `<div class="score-row-display">${m.homeScore} - ${m.awayScore}</div>` : `<div class="vs-badge-widget">VS</div>`;
                 let badge = m.completed ? `<span class="status-badge">COMPLETED</span>` : `<span class="status-badge unplayed">UNPLAYED</span>`;
-
                 let homeScorers = [];
                 let homeAssists = [];
                 let awayScorers = [];
                 let awayAssists = [];
-
                 if (m.completed && m.events) {
                     let eventsArr = Array.isArray(m.events) ? m.events : Object.values(m.events);
                     eventsArr.forEach(e => {
                         let p = players.find(x => x.id === e.playerId);
                         let displayName = p ? p.name : (e.playerName || null);
                         if (!displayName) return; // no way to identify who this event belongs to
-
                         // Use the teamId snapshotted at time of match; fall back to current teamId for old data
                         let eventTeamId = e.teamId || (p && p.teamId) || m.homeId;
                         let departedTag = !p ? ' <span style="font-size:9px;color:var(--text-muted);">(departed)</span>' : '';
-
                         let penaltyMarker = e.scoringType === 'penalty' ? " (P)" : "";
-
                         if (e.type === 'goals') {
                             if (eventTeamId === m.homeId) homeScorers.push(`${displayName}${penaltyMarker} (${e.count})${departedTag}`);
                             else awayScorers.push(`${displayName}${penaltyMarker} (${e.count})${departedTag}`);
@@ -1854,17 +1699,13 @@
                         }
                     });
                 }
-
                 let homeLayoutHtml = '';
                 if(homeScorers.length > 0) homeLayoutHtml += `<div class="pl-event-line">⚽ ${homeScorers.join(', ')}</div>`;
                 if(homeAssists.length > 0) homeLayoutHtml += `<div class="pl-event-line pl-event-subtext">👟 Assists: ${homeAssists.join(', ')}</div>`;
-
                 let awayLayoutHtml = '';
                 if(awayScorers.length > 0) awayLayoutHtml += `<div class="pl-event-line">⚽ ${awayScorers.join(', ')}</div>`;
                 if(awayAssists.length > 0) awayLayoutHtml += `<div class="pl-event-line pl-event-subtext">👟 Assists: ${awayAssists.join(', ')}</div>`;
-
                 let adminActionButton = isAdmin ? `<button class="enter-score-btn ${m.completed?'edit-mode':''}" onclick="event.stopPropagation();openScoreModal('${m.id}')">${m.completed?'⚙️ Admin Edit Scores':'✍️ Input Scoreline Stats'}</button>` : '';
-
                 return `
                 <div class="fixture-wrapper-row">
                     <div class="fixture-inner-container">
@@ -1887,18 +1728,15 @@
                     ${adminActionButton}
                 </div>`;
             };
-
             if (activeAppPageId === 'dash') {
                 let validFixtures = matches.filter(m => m.tag !== "GLOBAL STAT OVERRIDE ADJUSTMENT DATA");
                 
                 let completedMatches = validFixtures.filter(m => m.completed);
                 let last3PlayedHtml = completedMatches.slice(-3).map(generateFixtureRowCard).join('');
                 document.getElementById("dashPlayedTodayContainer").innerHTML = last3PlayedHtml || `<div class="empty-state-notice">No games completed yet.</div>`;
-
                 let upcomingMatches = validFixtures.filter(m => !m.completed);
                 let next3UpcomingHtml = upcomingMatches.slice(0, 3).map(generateFixtureRowCard).join('');
                 document.getElementById("dashUpcomingRemainingContainer").innerHTML = next3UpcomingHtml || `<div class="empty-state-notice">No upcoming scheduled fixtures found.</div>`;
-
                 let seasonCard = document.getElementById("seasonChampionCard");
                 let seasonTarget = currentSeasonTarget();
                 let realTeamsForSeason = teams.filter(t => t.id !== 'dummy-bye');
@@ -1912,11 +1750,9 @@
                     stopFireworks();
                 }
             }
-
             if (activeAppPageId === 'matches') {
                 let q = document.getElementById("matchSearch").value.toLowerCase().trim();
                 let rSelect = document.getElementById("weekendFilterSelect")?.value || "ALL_ROUNDS";
-
                 // ── Build all valid matches sorted chronologically by their original tag number ──
                 let allValidMatches = matches.filter(m => m.tag !== "GLOBAL STAT OVERRIDE ADJUSTMENT DATA");
                 allValidMatches.sort((a, b) => {
@@ -1924,13 +1760,11 @@
                     let nb = parseInt((b.tag.match(/\d+/) || [0])[0]);
                     return na - nb || matches.indexOf(a) - matches.indexOf(b);
                 });
-
                 // ── Group into sequential matchdays of 3 ──
                 let matchdayGroups = [];
                 for (let i = 0; i < allValidMatches.length; i += 3) {
                     matchdayGroups.push(allValidMatches.slice(i, i + 3));
                 }
-
                 // ── Apply search/filter to decide which matchdays to show ──
                 let filteredGroups = matchdayGroups.map((group, idx) => {
                     let mdLabel = 'MATCHDAY ' + (idx + 1);
@@ -1946,7 +1780,6 @@
                     });
                     return { mdLabel, group: filteredGroup, mdIndex: idx };
                 }).filter(x => x.group.length > 0);
-
                 if (filteredGroups.length === 0) {
                     document.getElementById("fixturesContainer").innerHTML = '<div class="empty-state-notice">No matching fixtures found.</div>';
                 } else {
@@ -1975,7 +1808,6 @@
                     document.getElementById("fixturesContainer").innerHTML = sectionsHtml;
                 }
             }
-
             if (activeAppPageId === 'squads') {
                 document.getElementById("squadsGrid").innerHTML = teams.map(t => `
                     <div class="squad-card">
@@ -1985,7 +1817,6 @@
                         </div>
                     </div>`).join('') || `<div class="empty-state-notice">No registered club profiles found.</div>`;
             }
-
             if (isAdmin) {
                 let listEl = document.getElementById("adminPanelListingItems");
                 if(listEl) {
@@ -2024,7 +1855,6 @@
                     }
                 }
             }
-
             renderLeaderboardOnly();
             if (activeAppPageId === 'news') renderNewsPage();
             if (activeAppPageId === 'records') renderRecordsPage();
