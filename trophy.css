@@ -549,7 +549,13 @@ body {
     font-size: 12px; font-weight: 700; color: var(--tc-muted); text-transform: uppercase;
     letter-spacing: 0.05em; margin-bottom: 10px;
 }
-.tc-fixtures-list { display: flex; flex-direction: column; gap: 8px; }
+.tc-fixtures-list {
+    display: flex; flex-direction: row; gap: 10px;
+    overflow-x: auto; padding-bottom: 10px; scrollbar-width: thin;
+}
+.tc-fixtures-list .tc-match-card { flex: 0 0 200px; }
+.tc-fixtures-list::-webkit-scrollbar { height: 6px; }
+.tc-fixtures-list::-webkit-scrollbar-thumb { background: var(--tc-border-light); border-radius: 3px; }
 
 /* --- Flat match card (group fixture or knockout tie) --- */
 .tc-match-label {
@@ -573,7 +579,7 @@ body {
 .tc-placeholder-text { color: var(--tc-muted); font-size: 12px; line-height: 1.5; }
 
 /* --- Knockout section --- */
-.tc-knockout-section { border-top: 1px dashed var(--tc-border); padding-top: 24px; margin-top: 8px; }
+.tc-knockout-section { border-bottom: 1px dashed var(--tc-border); padding-bottom: 24px; margin-bottom: 28px; }
 .tc-knockout-heading {
     font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700;
     color: var(--tc-text-bright); text-align: center; margin-bottom: 14px;

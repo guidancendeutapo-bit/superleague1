@@ -383,7 +383,7 @@ function scProcessTie(match) {
     let winnerId = aggregate.home > aggregate.away ? match.homeId : aggregate.away > aggregate.home ? match.awayId : null;
     if (!winnerId) {
         const decidingLeg = legs[legs.length - 1];
-        if (decidingLeg.homePen !== null && decidingLeg.awayPen !== null && decidingLeg.homePen !== decidingLeg.awayPen) {
+        if (decidingLeg.homePen != null && decidingLeg.awayPen != null && decidingLeg.homePen !== decidingLeg.awayPen) {
             // Same swap issue as the aggregate: if the deciding leg is a return leg,
             // decidingLeg.homeId is match.awayId, so its "homePen" actually belongs to
             // the tie's away team. Map penalty totals to the real teams before deciding.
@@ -502,8 +502,10 @@ function scRenderMatchCard(match) {
     const legsHtml = (match.legs || []).map(leg => {
         const legHome = scTeams.find(team => team.id === leg.homeId)?.name || 'TBD';
         const legAway = scTeams.find(team => team.id === leg.awayId)?.name || 'TBD';
-        const homeScore = leg.homeScore === null ? '-' : leg.homeScore;
-        const awayScore = leg.awayScore === null ? '-' : leg.awayScore;
+        // Firebase deletes any field stored as `null`, so an unplayed leg comes back
+        // with homeScore/awayScore simply MISSING (undefined), not null.
+        const homeScore = leg.homeScore ?? '-';
+        const awayScore = leg.awayScore ?? '-';
         return `<button class="sc-leg-row" onclick="event.stopPropagation();scOpenMatchModal('${scEscape(match.id)}')"><span>Leg ${leg.number}</span><strong>${scEscape(legHome)} <b>${homeScore}–${awayScore}</b> ${scEscape(legAway)}</strong></button>`;
     }).join('');
     const seriesText = scTieIsTwoLeg(match) ? `<div class="sc-series-total">Aggregate <strong>${aggregate.home}–${aggregate.away}</strong></div>` : '';
@@ -559,7 +561,7 @@ function scRenderLegDetail(match, leg) {
         </div>` : '<div class="sc-no-events">No goal details recorded.</div>';
     const score = leg.completed ? `${leg.homeScore} – ${leg.awayScore}` : 'Not played';
     const admin = scIsAdmin && leg.homeId && leg.awayId ? `<button class="sc-enter-score-link" onclick="scOpenScoreModal('${scEscape(leg.id)}')">${leg.completed ? '⚙️ Edit Score' : '✍️ Enter Score'}</button>` : '';
-    return `<section class="sc-leg-detail"><div class="sc-leg-detail-header"><span>Leg ${leg.number}</span><strong class="sc-leg-detail-score">${score}</strong><span>${scEscape(home)} vs ${scEscape(away)}</span></div><div class="sc-leg-detail-events">${eventHtml}</div>${leg.homeScore === leg.awayScore && leg.homePen !== null ? `<div class="sc-penalties">Penalties: ${leg.homePen} – ${leg.awayPen}</div>` : ''}${admin}</section>`;
+    return `<section class="sc-leg-detail"><div class="sc-leg-detail-header"><span>Leg ${leg.number}</span><strong class="sc-leg-detail-score">${score}</strong><span>${scEscape(home)} vs ${scEscape(away)}</span></div><div class="sc-leg-detail-events">${eventHtml}</div>${leg.completed && leg.homeScore === leg.awayScore && leg.homePen != null ? `<div class="sc-penalties">Penalties: ${leg.homePen} – ${leg.awayPen}</div>` : ''}${admin}</section>`;
 }
 
 function scCloseLegModal() { document.getElementById('scLegModal').classList.remove('active'); }

@@ -332,9 +332,12 @@ function tcRenderKnockoutCard(match, placeholder) {
 function tcRenderMatchCard(match) {
     const home = tcTeams.find(team => team.id === match.homeId)?.name || 'TBD';
     const away = tcTeams.find(team => team.id === match.awayId)?.name || 'TBD';
-    const homeScore = match.homeScore === null ? '-' : match.homeScore;
-    const awayScore = match.awayScore === null ? '-' : match.awayScore;
-    const penText = (match.homeScore === match.awayScore && match.homePen !== null) ? `<div class="tc-pen-tag">Pens: ${match.homePen}–${match.awayPen}</div>` : '';
+    // Firebase deletes any field stored as `null`, so a never-played match comes
+    // back with homeScore/awayScore/homePen/awayPen simply MISSING (undefined),
+    // not null. Treat both the same way here, or "undefined" prints literally.
+    const homeScore = match.homeScore ?? '-';
+    const awayScore = match.awayScore ?? '-';
+    const penText = (match.completed && match.homeScore === match.awayScore && match.homePen != null) ? `<div class="tc-pen-tag">Pens: ${match.homePen}–${match.awayPen}</div>` : '';
     return `<div class="tc-match-card ${match.completed ? 'completed' : ''}" onclick="tcOpenMatchModal('${tcEscape(match.id)}')">
         <div class="tc-match-label">${tcEscape(match.label)}</div>
         <div class="tc-match-teams">
@@ -379,7 +382,7 @@ function tcRenderGroupsAndKnockout() {
         </div>
     </div>`;
 
-    container.innerHTML = championHtml + groupsHtml + fixturesHtml + knockoutHtml;
+    container.innerHTML = championHtml + knockoutHtml + groupsHtml + fixturesHtml;
     if (champion) tcStartFireworks(); else tcStopFireworks();
     tcUpdateCelebrateButton();
 }
@@ -426,7 +429,7 @@ function tcRenderMatchDetail(match) {
             <div class="tc-leg-goals-col tc-leg-goals-away">${awayLines.join('') || '<span class="tc-no-events-inline">No goals</span>'}</div>
         </div>` : '<div class="tc-no-events">No goal details recorded.</div>';
     const score = match.completed ? `${match.homeScore} – ${match.awayScore}` : 'Not played';
-    const penLine = (match.homeScore === match.awayScore && match.homePen !== null) ? `<div class="tc-penalties">Penalties: ${match.homePen} – ${match.awayPen}</div>` : '';
+    const penLine = (match.completed && match.homeScore === match.awayScore && match.homePen != null) ? `<div class="tc-penalties">Penalties: ${match.homePen} – ${match.awayPen}</div>` : '';
     const admin = tcIsAdmin && match.homeId && match.awayId ? `<button class="tc-enter-score-link" onclick="tcOpenScoreModal('${tcEscape(match.id)}')">${match.completed ? '⚙️ Edit Score' : '✍️ Enter Score'}</button>` : '';
     return `<section class="tc-leg-detail"><div class="tc-leg-detail-header"><strong class="tc-leg-detail-score">${score}</strong></div><div class="tc-leg-detail-events">${eventHtml}</div>${penLine}${admin}</section>`;
 }
@@ -508,7 +511,7 @@ function tcSaveScore() {
     if (isKnockout) {
         if (match.homeScore > match.awayScore) match.winnerId = match.homeId;
         else if (match.homeScore < match.awayScore) match.winnerId = match.awayId;
-        else if (match.homePen !== null && match.awayPen !== null && match.homePen !== match.awayPen) match.winnerId = match.homePen > match.awayPen ? match.homeId : match.awayId;
+        else if (match.homePen != null && match.awayPen != null && match.homePen !== match.awayPen) match.winnerId = match.homePen > match.awayPen ? match.homeId : match.awayId;
         else { match.completed = false; match.winnerId = null; }
         if (!match.completed) {
             alert('Scores are level — enter penalty totals to decide the winner (no replays in this competition).');
