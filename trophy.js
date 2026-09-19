@@ -95,10 +95,12 @@ function tcUpdateAdminUI() {
     const generate = document.getElementById('tcGenFixturesBtn');
     const postNews = document.getElementById('tcPostNewsBtn');
     const reset = document.getElementById('tcResetBtn');
+    const resetKnockout = document.getElementById('tcResetKnockoutBtn');
     if (manage) manage.style.display = tcIsAdmin ? 'inline-flex' : 'none';
     if (generate) generate.style.display = tcIsAdmin && !fixturesExist ? 'inline-flex' : 'none';
     if (postNews) postNews.style.display = tcIsAdmin ? 'inline-flex' : 'none';
     if (reset) reset.style.display = tcIsAdmin && fixturesExist ? 'inline-flex' : 'none';
+    if (resetKnockout) resetKnockout.style.display = tcIsAdmin && tcKnockout.semi1 ? 'inline-flex' : 'none';
 }
 
 // --- SQUADS (teams carry a `group` field: 'A' | 'B' | null) ---
@@ -228,6 +230,12 @@ function tcResetTournament() {
     tcGroupMatches = [];
     tcKnockout = tcEmptyKnockout();
     tcTeams.forEach(team => { team.group = null; });
+    tcSaveData();
+    tcRenderAll();
+}
+function tcResetKnockoutOnly() {
+    if (!confirm('Clear the semi-finals and final, and regenerate them fresh from the CURRENT group tables? Group match results are kept exactly as they are — only the knockout pairings and champion are wiped.')) return;
+    tcKnockout = tcEmptyKnockout();
     tcSaveData();
     tcRenderAll();
 }
@@ -438,6 +446,9 @@ function tcCloseMatchModal() { document.getElementById('tcMatchModal').classList
 function tcOpenScoreModal(matchId) {
     const match = tcFindMatchById(matchId);
     if (!match) return;
+    if (match.group && tcKnockout.semi1) {
+        if (!confirm('The semi-finals have already been generated from the group tables. Changing this result could shuffle the standings so they no longer match who\'s actually playing in the semis.\n\nYou can still save this correction, but afterward use "Reset Knockout Stage" and regenerate the semis so the pairings stay accurate. Continue editing this score?')) return;
+    }
     tcEditingMatchId = matchId;
     const home = tcTeams.find(team => team.id === match.homeId)?.name || 'Home';
     const away = tcTeams.find(team => team.id === match.awayId)?.name || 'Away';
