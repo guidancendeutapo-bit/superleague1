@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Champions Cup</title>
 <link rel="stylesheet" href="cup.css">
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -56,12 +56,28 @@
   </section>
 
   <section class="stats-wrap">
-    <h2 class="group-title stats-title">Top Scorers</h2>
-    <div id="overall-stats"></div>
+    <div class="stats-grid">
+      <div class="stats-card">
+        <h2>🔥 Top Scorers</h2>
+        <div id="top-scorers"></div>
+      </div>
+      <div class="stats-card">
+        <h2>👟 Top Assists</h2>
+        <div id="top-assists"></div>
+      </div>
+    </div>
   </section>
 
   <div class="reset-row" id="reset-row"></div>
 </main>
+
+<div class="modal-overlay" id="stats-modal">
+  <div class="modal-box">
+    <button class="modal-close-btn" id="stats-modal-close" type="button">×</button>
+    <div class="modal-title" id="stats-modal-title">Match</div>
+    <div id="stats-modal-body"></div>
+  </div>
+</div>
 
 <div class="celebration-overlay hidden" id="celebration-overlay">
   <canvas id="confetti-canvas"></canvas>

@@ -97,9 +97,9 @@ function normalizeTeams(saved) {
 
 function defaultKO() {
   return {
-    sf1: { home: "", away: "", homeStats: {}, awayStats: {}, penaltyWinner: null },
-    sf2: { home: "", away: "", homeStats: {}, awayStats: {}, penaltyWinner: null },
-    final: { home: "", away: "", homeStats: {}, awayStats: {}, penaltyWinner: null, celebrated: false }
+    sf1: { home: "", away: "", events: [], penaltyWinner: null },
+    sf2: { home: "", away: "", events: [], penaltyWinner: null },
+    final: { home: "", away: "", events: [], penaltyWinner: null, celebrated: false }
   };
 }
 
@@ -222,26 +222,25 @@ function getEntry(scope, key) {
   return scope === "group" ? (scores[key] || {}) : (koData[key] || {});
 }
 
-function statsForSide(scope, key, side) {
+function getEvents(scope, key) {
   const e = getEntry(scope, key);
-  return (e && e[`${side}Stats`]) || {};
+  return (e && e.events) || [];
 }
 
-function buildStatsTable(scope, key, teamId, side) {
-  const players = (teams[teamId] && teams[teamId].players) || [];
-  const title = `<div class="stat-table-title">${escapeHtml(teamName(teamId))}</div>`;
-  if (players.length === 0) {
-    return `<div>${title}<p class="no-players">No players added yet.</p></div>`;
+function setEvents(scope, key, events) {
+  if (scope === "group") {
+    if (!scores[key]) scores[key] = { home: "", away: "" };
+    scores[key].events = events;
+    saveScores();
+  } else {
+    koData[key].events = events;
+    saveKO();
   }
-  const stats = statsForSide(scope, key, side);
-  const rows = players.map(p => `
-    <div class="stat-row">
-      <span>${escapeHtml(p.name)}</span>
-      <input type="number" min="0" class="stat-input"
-        data-scope="${scope}" data-key="${key}" data-side="${side}" data-player-id="${p.id}"
-        value="${stats[p.id] || ""}" ${isAdmin() ? "" : "disabled"}>
-    </div>`).join("");
-  return `<div>${title}${rows}</div>`;
+}
+
+function playerNameById(teamId, playerId) {
+  const p = teams[teamId] && teams[teamId].players.find(pl => pl.id === playerId);
+  return p ? p.name : "Unknown player";
 }
 
 // ---------------------------------------------------------------------------
@@ -400,11 +399,8 @@ function renderFixtures(group) {
           <span class="vs">:</span>
           <input type="number" min="0" data-key="${key}" data-side="away" value="${s.away}" ${admin ? "" : "disabled"}>
           <span class="away">${escapeHtml(teamName(match.away))}</span>
-          <button type="button" class="stat-toggle" data-detail-for="${key}" title="Match stats">📊</button>
-        </div>
-        <div class="match-detail hidden" data-detail="${key}">
-          ${buildStatsTable("group", key, match.home, "home")}
-          ${buildStatsTable("group", key, match.away, "away")}
+          <button type="button" class="open-stats-btn" data-scope="group" data-key="${key}"
+            data-home="${match.home}" data-away="${match.away}" title="Match stats">📊 Stats</button>
         </div>`;
     });
     html += `</div>`;
@@ -461,11 +457,8 @@ function renderKoTie(containerId, matchId, label, homeId, awayId, opts) {
             <option value="away" ${entry.penaltyWinner === "away" ? "selected" : ""}>${escapeHtml(teamName(awayId))}</option>
           </select>
         </div>` : ""}
-      <button type="button" class="stat-toggle sf-stat-toggle" data-detail-for="${matchId}">📊 Match stats</button>
-      <div class="match-detail hidden" data-detail="${matchId}">
-        ${buildStatsTable("ko", matchId, homeId, "home")}
-        ${buildStatsTable("ko", matchId, awayId, "away")}
-      </div>
+      <button type="button" class="open-stats-btn sf-stat-toggle" data-scope="ko" data-key="${matchId}"
+        data-home="${homeId}" data-away="${awayId}">📊 Match Stats</button>
     </div>`;
 
   return winnerId;
@@ -508,66 +501,227 @@ function renderFinal(sf1Winner, sf2Winner) {
 }
 
 // ---------------------------------------------------------------------------
+// Match Stats Modal (goal scorer + assist entry)
+// ---------------------------------------------------------------------------
+
+let statsModal = { scope: null, key: null, home: null, away: null, entries: [] };
+
+function openStatsModal(scope, key, homeId, awayId) {
+  statsModal.scope = scope;
+  statsModal.key = key;
+  statsModal.home = homeId;
+  statsModal.away = awayId;
+
+  const goalEvents = getEvents(scope, key).filter(e => e.type === "goal" || e.type === "ownGoal");
+  const allEvents = getEvents(scope, key);
+  statsModal.entries = goalEvents.map(ev => {
+    const pos = allEvents.indexOf(ev);
+    const next = allEvents[pos + 1];
+    return {
+      playerId: ev.playerId,
+      teamId: ev.teamId,
+      type: ev.type,
+      scoringType: ev.scoringType || "regular",
+      assistId: (ev.type === "goal" && next && next.type === "assist") ? next.playerId : ""
+    };
+  });
+
+  document.getElementById("stats-modal-title").textContent =
+    `${teamName(homeId)} vs ${teamName(awayId)}`;
+  renderStatsModalBody();
+  document.getElementById("stats-modal").classList.add("active");
+}
+
+function closeStatsModal() {
+  document.getElementById("stats-modal").classList.remove("active");
+}
+
+function statsModalScoreLine() {
+  const entry = getEntry(statsModal.scope, statsModal.key);
+  const h = entry.home !== undefined && entry.home !== "" ? entry.home : "–";
+  const a = entry.away !== undefined && entry.away !== "" ? entry.away : "–";
+  return `${h} – ${a}`;
+}
+
+function buildGoalColumn(teamId) {
+  const lines = [];
+  const allEvents = getEvents(statsModal.scope, statsModal.key);
+  allEvents.forEach((ev, idx) => {
+    if (ev.type !== "goal" && ev.type !== "ownGoal") return;
+    const belongsHere = ev.type === "ownGoal" ? ev.teamId !== teamId : ev.teamId === teamId;
+    if (!belongsHere) return;
+    const name = playerNameById(ev.teamId, ev.playerId);
+    const penTag = ev.scoringType === "penalty" ? ` <span class="ms-tag">(P)</span>` : "";
+    const ogTag = ev.type === "ownGoal" ? ` <span class="ms-tag">(OG)</span>` : "";
+    const next = allEvents[idx + 1];
+    const assistName = (ev.type === "goal" && next && next.type === "assist")
+      ? playerNameById(next.teamId, next.playerId) : null;
+    lines.push(`<div class="ms-goal-line">${ev.type === "ownGoal" ? "🔴" : "⚽"} <strong>${escapeHtml(name)}</strong>${penTag}${ogTag}${assistName ? `<div class="ms-goal-assist">👟 ${escapeHtml(assistName)}</div>` : ""}</div>`);
+  });
+  return lines.length ? lines.join("") : `<span class="ms-no-goals">No goals</span>`;
+}
+
+function renderStatsModalBody() {
+  const { scope, key, home, away } = statsModal;
+  const admin = isAdmin();
+
+  let html = `
+    <div class="ms-score-line">
+      <span>${escapeHtml(teamName(home))}</span>
+      <strong>${statsModalScoreLine()}</strong>
+      <span>${escapeHtml(teamName(away))}</span>
+    </div>
+    <div class="ms-goals-header"><span>${escapeHtml(teamName(home))}</span><span>${escapeHtml(teamName(away))}</span></div>
+    <div class="ms-goals-grid">
+      <div class="ms-goal-col">${buildGoalColumn(home)}</div>
+      <div class="ms-goal-col">${buildGoalColumn(away)}</div>
+    </div>`;
+
+  if (admin) {
+    const players = [
+      ...((teams[home] && teams[home].players) || []),
+      ...((teams[away] && teams[away].players) || [])
+    ];
+    const playerOptions = (selected, excludeId) => players
+      .filter(p => p.id !== excludeId)
+      .map(p => `<option value="${p.id}" ${selected === p.id ? "selected" : ""}>${escapeHtml(p.name)}</option>`)
+      .join("");
+
+    const rows = statsModal.entries.map((entry, idx) => `
+      <div class="ms-goal-row">
+        <select data-idx="${idx}" data-field="scorer" ${players.length === 0 ? "disabled" : ""}>
+          <option value="">— Scorer —</option>${playerOptions(entry.playerId, "")}
+        </select>
+        <select data-idx="${idx}" data-field="type">
+          <option value="goal" ${entry.type === "goal" && entry.scoringType !== "penalty" ? "selected" : ""}>Goal</option>
+          <option value="penalty" ${entry.scoringType === "penalty" ? "selected" : ""}>Penalty</option>
+          <option value="ownGoal" ${entry.type === "ownGoal" ? "selected" : ""}>Own goal</option>
+        </select>
+        <select data-idx="${idx}" data-field="assist" ${players.length === 0 ? "disabled" : ""}>
+          <option value="">— Assist —</option>${playerOptions(entry.assistId, entry.playerId)}
+        </select>
+        <button type="button" class="ms-remove-goal-btn" data-idx="${idx}" data-action="remove">×</button>
+      </div>`).join("");
+
+    html += `
+      <div class="ms-entry-form-header">Edit goal scorers &amp; assists</div>
+      <div id="ms-goal-rows">${rows || ""}</div>
+      <button type="button" class="ms-add-goal-btn" id="ms-add-goal">+ Add goal</button>
+      <button type="button" class="ms-save-btn" id="ms-save-stats">💾 Save Match Stats</button>`;
+
+    if (players.length === 0) {
+      html += `<p class="ms-view-note">Add players to both teams in Admin Mode to log scorers.</p>`;
+    }
+  } else if (statsModal.entries.length === 0) {
+    html += `<p class="ms-view-note">No goal details recorded yet.</p>`;
+  }
+
+  document.getElementById("stats-modal-body").innerHTML = html;
+}
+
+function statsModalAddGoal() {
+  statsModal.entries.push({ playerId: "", teamId: "", type: "goal", scoringType: "regular", assistId: "" });
+  renderStatsModalBody();
+}
+
+function statsModalRemoveGoal(idx) {
+  statsModal.entries.splice(idx, 1);
+  renderStatsModalBody();
+}
+
+function statsModalUpdateGoal(idx, field, value) {
+  const entry = statsModal.entries[idx];
+  if (!entry) return;
+  if (field === "scorer") {
+    entry.playerId = value;
+    entry.teamId = (teams[statsModal.home] && teams[statsModal.home].players.some(p => p.id === value))
+      ? statsModal.home : statsModal.away;
+  } else if (field === "assist") {
+    entry.assistId = value;
+  } else if (field === "type") {
+    entry.type = value === "ownGoal" ? "ownGoal" : "goal";
+    entry.scoringType = value === "penalty" ? "penalty" : "regular";
+  }
+}
+
+function saveStatsModal() {
+  if (!isAdmin()) return;
+  const events = [];
+  statsModal.entries.forEach(entry => {
+    if (!entry.playerId) return;
+    events.push({ playerId: entry.playerId, teamId: entry.teamId, type: entry.type, scoringType: entry.scoringType });
+    if (entry.assistId) {
+      const assistTeamId = (teams[statsModal.home] && teams[statsModal.home].players.some(p => p.id === entry.assistId))
+        ? statsModal.home : statsModal.away;
+      events.push({ playerId: entry.assistId, teamId: assistTeamId, type: "assist", scoringType: "regular" });
+    }
+  });
+  setEvents(statsModal.scope, statsModal.key, events);
+  renderOverallStats();
+  renderStatsModalBody();
+}
+
+function wireStatsModalEvents() {
+  document.getElementById("stats-modal-close").addEventListener("click", closeStatsModal);
+  document.getElementById("stats-modal").addEventListener("click", e => {
+    if (e.target.id === "stats-modal") closeStatsModal();
+  });
+  const body = document.getElementById("stats-modal-body");
+  body.addEventListener("change", e => {
+    const idx = e.target.dataset.idx;
+    if (idx === undefined) return;
+    statsModalUpdateGoal(parseInt(idx, 10), e.target.dataset.field, e.target.value);
+  });
+  body.addEventListener("click", e => {
+    if (e.target.id === "ms-add-goal") statsModalAddGoal();
+    if (e.target.id === "ms-save-stats") saveStatsModal();
+    if (e.target.dataset.action === "remove") statsModalRemoveGoal(parseInt(e.target.dataset.idx, 10));
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Rendering: overall stats (top scorers)
 // ---------------------------------------------------------------------------
 
 function renderOverallStats() {
-  const totals = {};
+  const goals = {};
+  const assists = {};
 
-  function addStats(scope, key, teamId, side) {
-    if (!teamId) return;
-    const stats = statsForSide(scope, key, side);
-    Object.entries(stats).forEach(([pid, val]) => {
-      const n = parseInt(val, 10);
-      if (!n || n <= 0) return;
-      const player = teams[teamId] && teams[teamId].players.find(p => p.id === pid);
-      const name = player ? player.name : "Unknown player";
-      if (!totals[pid]) totals[pid] = { name, teamId, goals: 0 };
-      totals[pid].goals += n;
+  function tally(events) {
+    (events || []).forEach(ev => {
+      const bucket = ev.type === "goal" ? goals : ev.type === "assist" ? assists : null;
+      if (!bucket) return;
+      if (!bucket[ev.playerId]) bucket[ev.playerId] = { playerId: ev.playerId, teamId: ev.teamId, count: 0 };
+      bucket[ev.playerId].count += 1;
     });
   }
 
   ["A", "B"].forEach(g => {
     schedules[g].forEach((round, rIdx) => round.forEach((m, mIdx) => {
-      const key = matchKey(g, rIdx, mIdx);
-      addStats("group", key, m.home, "home");
-      addStats("group", key, m.away, "away");
+      tally(getEvents("group", matchKey(g, rIdx, mIdx)));
     }));
   });
+  ["sf1", "sf2", "final"].forEach(k => tally(getEvents("ko", k)));
 
-  const a = groupComplete("A") && groupComplete("B") ? computeStandings("A") : null;
-  const b = a ? computeStandings("B") : null;
-  if (a && b) {
-    addStats("ko", "sf1", a[0].team, "home");
-    addStats("ko", "sf1", b[1].team, "away");
-    addStats("ko", "sf2", b[0].team, "home");
-    addStats("ko", "sf2", a[1].team, "away");
-    const sf1Winner = koResult(koData.sf1) === "home" ? a[0].team : koResult(koData.sf1) === "away" ? b[1].team : null;
-    const sf2Winner = koResult(koData.sf2) === "home" ? b[0].team : koResult(koData.sf2) === "away" ? a[1].team : null;
-    if (sf1Winner && sf2Winner) {
-      addStats("ko", "final", sf1Winner, "home");
-      addStats("ko", "final", sf2Winner, "away");
-    }
+  function renderBoard(source, suffix, fillClass) {
+    const rows = Object.values(source)
+      .map(row => ({ ...row, name: playerNameById(row.teamId, row.playerId) }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+    if (!rows.length) return `<p class="empty-note">No ${suffix} recorded yet. Log them from a match's 📊 Stats button.</p>`;
+    const max = rows[0].count || 1;
+    return rows.map((row, i) => `
+      <div class="bar-row">
+        <div class="bar-label">
+          <span class="bar-name"><span class="bar-rank ${i === 0 ? "top" : ""}">${i + 1}</span>${escapeHtml(row.name)} <span class="bar-team">${escapeHtml(teamName(row.teamId))}</span></span>
+          <span class="bar-value">${row.count} ${suffix}</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill ${fillClass}" style="width:${(row.count / max) * 100}%"></div></div>
+      </div>`).join("");
   }
 
-  const list = Object.values(totals).sort((x, y) => y.goals - x.goals).slice(0, 15);
-  const el = document.getElementById("overall-stats");
-  if (list.length === 0) {
-    el.innerHTML = `<p class="locked-msg">No scorers recorded yet. Add players in Admin Mode, then log goals from each match's 📊 stats panel.</p>`;
-    return;
-  }
-  el.innerHTML = `
-    <table class="standings stats-table-main">
-      <thead><tr><th style="text-align:left">Player</th><th style="text-align:left">Team</th><th>Goals</th></tr></thead>
-      <tbody>
-        ${list.map((p, i) => `
-          <tr class="${i === 0 ? "top-scorer" : ""}">
-            <td style="text-align:left">${i === 0 ? "👑 " : ""}${escapeHtml(p.name)}</td>
-            <td style="text-align:left">${escapeHtml(teamName(p.teamId))}</td>
-            <td>${p.goals}</td>
-          </tr>`).join("")}
-      </tbody>
-    </table>`;
+  document.getElementById("top-scorers").innerHTML = renderBoard(goals, "goals", "goals");
+  document.getElementById("top-assists").innerHTML = renderBoard(assists, "assists", "assists");
 }
 
 // ---------------------------------------------------------------------------
@@ -689,26 +843,6 @@ function handleGroupScoreInput(e) {
   renderOverallStats();
 }
 
-function handleStatInput(e) {
-  const scope = e.target.dataset.scope;
-  const key = e.target.dataset.key;
-  const side = e.target.dataset.side;
-  const playerId = e.target.dataset.playerId;
-  const statKey = `${side}Stats`;
-
-  if (scope === "group") {
-    if (!scores[key]) scores[key] = { home: "", away: "", homeStats: {}, awayStats: {} };
-    if (!scores[key][statKey]) scores[key][statKey] = {};
-    scores[key][statKey][playerId] = e.target.value;
-    saveScores();
-  } else {
-    if (!koData[key][statKey]) koData[key][statKey] = {};
-    koData[key][statKey][playerId] = e.target.value;
-    saveKO();
-  }
-  renderOverallStats();
-}
-
 function handleKoScoreChange(e) {
   const matchId = e.target.dataset.match;
   const side = e.target.dataset.side;
@@ -726,11 +860,6 @@ function handlePenaltyChange(e) {
   const { sf1Winner, sf2Winner } = renderSemifinals();
   renderFinal(sf1Winner, sf2Winner);
   renderOverallStats();
-}
-
-function toggleDetail(key) {
-  const panel = document.querySelector(`.match-detail[data-detail="${key}"]`);
-  if (panel) panel.classList.toggle("hidden");
 }
 
 function wireStaticEvents() {
@@ -756,12 +885,9 @@ function wireStaticEvents() {
     col.addEventListener("input", e => {
       if (e.target.matches(".match-row input[type=number]")) handleGroupScoreInput(e);
     });
-    col.addEventListener("change", e => {
-      if (e.target.matches(".stat-input")) handleStatInput(e);
-    });
     col.addEventListener("click", e => {
-      const btn = e.target.closest(".stat-toggle");
-      if (btn) toggleDetail(btn.dataset.detailFor);
+      const btn = e.target.closest(".open-stats-btn");
+      if (btn) openStatsModal(btn.dataset.scope, btn.dataset.key, btn.dataset.home, btn.dataset.away);
     });
   });
 
@@ -769,11 +895,10 @@ function wireStaticEvents() {
   document.querySelector("main").addEventListener("change", e => {
     if (e.target.matches(".ko-input")) handleKoScoreChange(e);
     if (e.target.matches(".penalty-select")) handlePenaltyChange(e);
-    if (e.target.matches(".stat-input")) handleStatInput(e);
   });
   document.querySelector("main").addEventListener("click", e => {
-    const btn = e.target.closest(".stat-toggle");
-    if (btn) toggleDetail(btn.dataset.detailFor);
+    const btn = e.target.closest(".open-stats-btn");
+    if (btn) openStatsModal(btn.dataset.scope, btn.dataset.key, btn.dataset.home, btn.dataset.away);
   });
 
   // Admin panel: team names, add/remove players, reset teams
@@ -833,6 +958,7 @@ async function init() {
     setSyncStatus(`⚠ Offline — ${lastSupabaseError || "showing local copy only"}`, false);
   }
   wireStaticEvents();
+  wireStatsModalEvents();
   renderAll();
 }
 
