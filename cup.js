@@ -177,9 +177,12 @@ async function fetchRemoteState() {
     return { teams: initial.teams, scores: initial.scores, ko: initial.ko };
   } catch (e) {
     console.error("Supabase load failed, falling back to local cache:", e);
+    lastSupabaseError = (e && (e.message || e.error_description || e.hint)) || "unknown error";
     return null;
   }
 }
+
+let lastSupabaseError = "";
 
 async function pushColumn(column, value) {
   cacheLocally();
@@ -827,7 +830,7 @@ async function init() {
     scores = loadScoresLocal();
     koData = loadKOLocal();
     cloudConnected = false;
-    setSyncStatus("⚠ Offline — showing local copy only", false);
+    setSyncStatus(`⚠ Offline — ${lastSupabaseError || "showing local copy only"}`, false);
   }
   wireStaticEvents();
   renderAll();
