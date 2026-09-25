@@ -4,6 +4,19 @@
 
 const ADMIN_PASSWORD = "Windhoek";
 
+// Cloud sync: all tournament data (teams, scores, stats, bracket) lives in this
+// Supabase table so every device sees the same data — not just localStorage on
+// one browser. If SUPABASE_URL/KEY are wrong or offline, the app falls back to
+// a local-only cache so it still works, but won't sync across devices.
+const SUPABASE_URL = "https://lmvqlkynafaqtwxwzkfn.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_deGrSfV-2Sgys4kjYxv1Qg__il-w6Ko";
+const SUPABASE_TABLE = "champions_cup_state";
+const SUPABASE_ROW_ID = "main";
+
+const sbClient = (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+
 // Fixed team slots per group. Display names & rosters are edited in Admin Mode, not here.
 const GROUP_IDS = {
   A: ["A1", "A2", "A3", "A4", "A5"],
@@ -64,7 +77,7 @@ function matchKey(group, round, idx) {
 }
 
 // ---------------------------------------------------------------------------
-// Teams & players (persisted, admin-editable)
+// Defaults & normalizers
 // ---------------------------------------------------------------------------
 
 function defaultTeams() {
@@ -75,39 +88,11 @@ function defaultTeams() {
   return t;
 }
 
-function loadTeams() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_TEAMS));
-    if (!saved) return defaultTeams();
-    const base = defaultTeams();
-    Object.keys(base).forEach(id => { if (saved[id]) base[id] = saved[id]; });
-    return base;
-  } catch {
-    return defaultTeams();
-  }
-}
-
-function saveTeams() {
-  try { localStorage.setItem(STORAGE_TEAMS, JSON.stringify(teams)); }
-  catch (e) { console.error("Could not save teams:", e); }
-}
-
-function teamName(id) {
-  return (teams[id] && teams[id].name) || id;
-}
-
-// ---------------------------------------------------------------------------
-// Scores (group stage) & knockout data
-// ---------------------------------------------------------------------------
-
-function loadScores() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_SCORES)) || {}; }
-  catch { return {}; }
-}
-
-function saveScores() {
-  try { localStorage.setItem(STORAGE_SCORES, JSON.stringify(scores)); }
-  catch (e) { console.error("Could not save scores:", e); }
+function normalizeTeams(saved) {
+  const base = defaultTeams();
+  if (!saved) return base;
+  Object.keys(base).forEach(id => { if (saved[id]) base[id] = saved[id]; });
+  return base;
 }
 
 function defaultKO() {
@@ -118,26 +103,109 @@ function defaultKO() {
   };
 }
 
-function loadKO() {
+function normalizeKO(saved) {
+  const base = defaultKO();
+  if (!saved) return base;
+  Object.keys(base).forEach(k => { if (saved[k]) base[k] = { ...base[k], ...saved[k] }; });
+  return base;
+}
+
+function teamName(id) {
+  return (teams[id] && teams[id].name) || id;
+}
+
+// ---------------------------------------------------------------------------
+// Local cache (fallback only — used if Supabase is unreachable)
+// ---------------------------------------------------------------------------
+
+function loadTeamsLocal() {
+  try { return normalizeTeams(JSON.parse(localStorage.getItem(STORAGE_TEAMS))); }
+  catch { return defaultTeams(); }
+}
+function loadScoresLocal() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_SCORES)) || {}; }
+  catch { return {}; }
+}
+function loadKOLocal() {
+  try { return normalizeKO(JSON.parse(localStorage.getItem(STORAGE_KO))); }
+  catch { return defaultKO(); }
+}
+function cacheLocally() {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KO));
-    if (!saved) return defaultKO();
-    const base = defaultKO();
-    Object.keys(base).forEach(k => { if (saved[k]) base[k] = { ...base[k], ...saved[k] }; });
-    return base;
-  } catch {
-    return defaultKO();
+    localStorage.setItem(STORAGE_TEAMS, JSON.stringify(teams));
+    localStorage.setItem(STORAGE_SCORES, JSON.stringify(scores));
+    localStorage.setItem(STORAGE_KO, JSON.stringify(koData));
+  } catch (e) { console.error("Could not update local cache:", e); }
+}
+
+// ---------------------------------------------------------------------------
+// Cloud sync (Supabase) — every save pushes the changed column to the shared
+// "main" row so every device reading the table sees the same tournament.
+// ---------------------------------------------------------------------------
+
+let cloudConnected = false;
+
+function setSyncStatus(text, ok) {
+  const el = document.getElementById("sync-status");
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = ok ? "#8fe6ab" : "#ff8f9a";
+}
+
+async function fetchRemoteState() {
+  if (!sbClient) return null;
+  try {
+    const { data, error } = await sbClient
+      .from(SUPABASE_TABLE)
+      .select("teams,scores,ko")
+      .eq("id", SUPABASE_ROW_ID)
+      .maybeSingle();
+    if (error) throw error;
+
+    if (data) {
+      return {
+        teams: normalizeTeams(data.teams),
+        scores: data.scores || {},
+        ko: normalizeKO(data.ko)
+      };
+    }
+
+    // No row yet for this tournament — create it with defaults.
+    const initial = { id: SUPABASE_ROW_ID, teams: defaultTeams(), scores: {}, ko: defaultKO() };
+    const { error: insertErr } = await sbClient.from(SUPABASE_TABLE).upsert(initial);
+    if (insertErr) throw insertErr;
+    return { teams: initial.teams, scores: initial.scores, ko: initial.ko };
+  } catch (e) {
+    console.error("Supabase load failed, falling back to local cache:", e);
+    return null;
   }
 }
 
-function saveKO() {
-  try { localStorage.setItem(STORAGE_KO, JSON.stringify(koData)); }
-  catch (e) { console.error("Could not save knockout data:", e); }
+async function pushColumn(column, value) {
+  cacheLocally();
+  if (!sbClient) return;
+  try {
+    const { error } = await sbClient
+      .from(SUPABASE_TABLE)
+      .update({ [column]: value, updated_at: new Date().toISOString() })
+      .eq("id", SUPABASE_ROW_ID);
+    if (error) throw error;
+    cloudConnected = true;
+    setSyncStatus("☁ Synced", true);
+  } catch (e) {
+    cloudConnected = false;
+    console.error(`Could not save "${column}" to Supabase:`, e);
+    setSyncStatus("⚠ Saved locally only — check connection", false);
+  }
 }
 
-let teams = loadTeams();
-let scores = loadScores();
-let koData = loadKO();
+function saveTeams() { pushColumn("teams", teams); }
+function saveScores() { pushColumn("scores", scores); }
+function saveKO() { pushColumn("ko", koData); }
+
+let teams = defaultTeams();
+let scores = {};
+let koData = defaultKO();
 const schedules = {
   A: generateRoundRobin(GROUP_IDS.A),
   B: generateRoundRobin(GROUP_IDS.B)
@@ -744,5 +812,25 @@ function wireStaticEvents() {
   document.getElementById("celebration-close-btn").addEventListener("click", closeCelebration);
 }
 
-wireStaticEvents();
-renderAll();
+async function init() {
+  setSyncStatus("☁ Connecting…", true);
+  const remote = await fetchRemoteState();
+  if (remote) {
+    teams = remote.teams;
+    scores = remote.scores;
+    koData = remote.ko;
+    cacheLocally();
+    cloudConnected = true;
+    setSyncStatus("☁ Synced", true);
+  } else {
+    teams = loadTeamsLocal();
+    scores = loadScoresLocal();
+    koData = loadKOLocal();
+    cloudConnected = false;
+    setSyncStatus("⚠ Offline — showing local copy only", false);
+  }
+  wireStaticEvents();
+  renderAll();
+}
+
+init();
