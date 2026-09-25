@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Champions Cup</title>
+<link rel="stylesheet" href="cup.css">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<header class="cup-header">
+  <div class="star-ball" aria-hidden="true">
+    <svg viewBox="0 0 100 100" width="46" height="46">
+      <polygon points="50,4 61,38 97,38 68,59 79,93 50,72 21,93 32,59 3,38 39,38"
+        fill="none" stroke="#d9c26a" stroke-width="3"/>
+    </svg>
+  </div>
+  <h1>CHAMPIONS <span>CUP</span></h1>
+  <p class="tagline">Group Stage &mdash; Road to the Final</p>
+
+  <div class="admin-bar">
+    <button id="admin-toggle-btn" class="admin-btn" type="button">🔒 Admin Mode</button>
+    <span id="admin-status" class="admin-status"></span>
+  </div>
+</header>
+
+<main>
+  <section class="admin-panel hidden" id="admin-panel"></section>
+
+  <section class="groups-wrap">
+    <div class="group-card" id="group-A"></div>
+    <div class="group-card" id="group-B"></div>
+  </section>
+
+  <section class="fixtures-wrap">
+    <div class="fixtures-col" id="fixtures-A"></div>
+    <div class="fixtures-col" id="fixtures-B"></div>
+  </section>
+
+  <section class="semifinal-wrap">
+    <h2>Semi-Finals</h2>
+    <div class="bracket" id="semifinals">
+      <p class="locked-msg">Semi-final draw unlocks once both groups finish.</p>
+    </div>
+  </section>
+
+  <section class="semifinal-wrap final-wrap">
+    <h2>Final</h2>
+    <div class="bracket" id="final-tie">
+      <p class="locked-msg">The final unlocks once both semi-finals are decided.</p>
+    </div>
+  </section>
+
+  <section class="stats-wrap">
+    <h2 class="group-title stats-title">Top Scorers</h2>
+    <div id="overall-stats"></div>
+  </section>
+
+  <div class="reset-row" id="reset-row"></div>
+</main>
+
+<div class="celebration-overlay hidden" id="celebration-overlay">
+  <canvas id="confetti-canvas"></canvas>
+  <div class="celebration-content">
+    <div class="trophy-emoji">🏆</div>
+    <h2 id="celebration-team"></h2>
+    <p class="celebration-sub">CHAMPIONS</p>
+    <button id="celebration-close-btn" type="button">Close</button>
+  </div>
+</div>
+
+<script src="cup.js"></script>
+</body>
+</html>
