@@ -1,8 +1,8 @@
 // ---- Champions Cup: 2 groups x 5 teams, single round-robin, top 2 -> semis -> final ----
 // Admin Mode gates all editing (scores, stats, team/player names). Everyone else sees a
-// read-only view. Change ADMIN_PIN below to set your own PIN.
+// read-only view. Change ADMIN_PASSWORD below to set your own password.
 
-const ADMIN_PIN = "1234";
+const ADMIN_PASSWORD = "Windhoek";
 
 // Fixed team slots per group. Display names & rosters are edited in Admin Mode, not here.
 const GROUP_IDS = {
@@ -670,13 +670,13 @@ function wireStaticEvents() {
       renderAll();
       return;
     }
-    const pin = prompt("Enter admin PIN:");
-    if (pin === null) return;
-    if (pin === ADMIN_PIN) {
+    const pass = prompt("Enter admin password:");
+    if (pass === null) return;
+    if (pass === ADMIN_PASSWORD) {
       sessionStorage.setItem(SESSION_ADMIN, "1");
       renderAll();
     } else {
-      alert("Incorrect PIN.");
+      alert("Incorrect password.");
     }
   });
 
