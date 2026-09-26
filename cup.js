@@ -516,7 +516,7 @@ function renderFinal(sf1Winner, sf2Winner) {
 // Match Stats Modal (goal scorer + assist entry)
 // ---------------------------------------------------------------------------
 
-let statsModal = { scope: null, key: null, home: null, away: null, entries: [] };
+let statsModal = { scope: null, key: null, home: null, away: null, entries: [], cards: [] };
 
 function openStatsModal(scope, key, homeId, awayId) {
   statsModal.scope = scope;
@@ -537,6 +537,9 @@ function openStatsModal(scope, key, homeId, awayId) {
       assistId: (ev.type === "goal" && next && next.type === "assist") ? next.playerId : ""
     };
   });
+  statsModal.cards = allEvents
+    .filter(e => e.type === "yellowCard" || e.type === "redCard")
+    .map(ev => ({ playerId: ev.playerId, teamId: ev.teamId, cardType: ev.type }));
 
   document.getElementById("stats-modal-title").textContent =
     `${teamName(homeId)} vs ${teamName(awayId)}`;
@@ -573,6 +576,17 @@ function buildGoalColumn(teamId) {
   return lines.length ? lines.join("") : `<span class="ms-no-goals">No goals</span>`;
 }
 
+function buildCardColumn(teamId) {
+  const lines = statsModal.cards
+    .filter(c => c.teamId === teamId)
+    .map(c => {
+      const name = playerNameById(c.teamId, c.playerId);
+      const icon = c.cardType === "redCard" ? "🟥" : "🟨";
+      return `<div class="ms-goal-line">${icon} <strong>${escapeHtml(name)}</strong></div>`;
+    });
+  return lines.length ? lines.join("") : `<span class="ms-no-goals">No cards</span>`;
+}
+
 function renderStatsModalBody() {
   const { scope, key, home, away } = statsModal;
   const admin = isAdmin();
@@ -587,6 +601,11 @@ function renderStatsModalBody() {
     <div class="ms-goals-grid">
       <div class="ms-goal-col">${buildGoalColumn(home)}</div>
       <div class="ms-goal-col">${buildGoalColumn(away)}</div>
+    </div>
+    <div class="ms-section-label">🟨🟥 Cards</div>
+    <div class="ms-goals-grid">
+      <div class="ms-goal-col">${buildCardColumn(home)}</div>
+      <div class="ms-goal-col">${buildCardColumn(away)}</div>
     </div>`;
 
   if (admin) {
@@ -618,14 +637,31 @@ function renderStatsModalBody() {
     html += `
       <div class="ms-entry-form-header">Edit goal scorers &amp; assists</div>
       <div id="ms-goal-rows">${rows || ""}</div>
-      <button type="button" class="ms-add-goal-btn" id="ms-add-goal">+ Add goal</button>
+      <button type="button" class="ms-add-goal-btn" id="ms-add-goal">+ Add goal</button>`;
+
+    const cardRows = statsModal.cards.map((card, idx) => `
+      <div class="ms-card-row">
+        <select data-cidx="${idx}" data-field="cardPlayer" ${players.length === 0 ? "disabled" : ""}>
+          <option value="">— Player —</option>${playerOptions(card.playerId, "")}
+        </select>
+        <select data-cidx="${idx}" data-field="cardType">
+          <option value="yellowCard" ${card.cardType === "yellowCard" ? "selected" : ""}>🟨 Yellow</option>
+          <option value="redCard" ${card.cardType === "redCard" ? "selected" : ""}>🟥 Red</option>
+        </select>
+        <button type="button" class="ms-remove-goal-btn" data-cidx="${idx}" data-action="remove-card">×</button>
+      </div>`).join("");
+
+    html += `
+      <div class="ms-entry-form-header">Edit cards</div>
+      <div id="ms-card-rows">${cardRows || ""}</div>
+      <button type="button" class="ms-add-goal-btn" id="ms-add-card">+ Add card</button>
       <button type="button" class="ms-save-btn" id="ms-save-stats">💾 Save Match Stats</button>`;
 
     if (players.length === 0) {
       html += `<p class="ms-view-note">Add players to both teams in Admin Mode to log scorers.</p>`;
     }
-  } else if (statsModal.entries.length === 0) {
-    html += `<p class="ms-view-note">No goal details recorded yet.</p>`;
+  } else if (statsModal.entries.length === 0 && statsModal.cards.length === 0) {
+    html += `<p class="ms-view-note">No match details recorded yet.</p>`;
   }
 
   document.getElementById("stats-modal-body").innerHTML = html;
@@ -656,6 +692,28 @@ function statsModalUpdateGoal(idx, field, value) {
   }
 }
 
+function statsModalAddCard() {
+  statsModal.cards.push({ playerId: "", teamId: "", cardType: "yellowCard" });
+  renderStatsModalBody();
+}
+
+function statsModalRemoveCard(idx) {
+  statsModal.cards.splice(idx, 1);
+  renderStatsModalBody();
+}
+
+function statsModalUpdateCard(idx, field, value) {
+  const card = statsModal.cards[idx];
+  if (!card) return;
+  if (field === "cardPlayer") {
+    card.playerId = value;
+    card.teamId = (teams[statsModal.home] && teams[statsModal.home].players.some(p => p.id === value))
+      ? statsModal.home : statsModal.away;
+  } else if (field === "cardType") {
+    card.cardType = value;
+  }
+}
+
 function saveStatsModal() {
   if (!isAdmin()) return;
   const events = [];
@@ -667,6 +725,10 @@ function saveStatsModal() {
         ? statsModal.home : statsModal.away;
       events.push({ playerId: entry.assistId, teamId: assistTeamId, type: "assist", scoringType: "regular" });
     }
+  });
+  statsModal.cards.forEach(card => {
+    if (!card.playerId) return;
+    events.push({ playerId: card.playerId, teamId: card.teamId, type: card.cardType });
   });
   setEvents(statsModal.scope, statsModal.key, events);
   renderOverallStats();
@@ -681,13 +743,16 @@ function wireStatsModalEvents() {
   const body = document.getElementById("stats-modal-body");
   body.addEventListener("change", e => {
     const idx = e.target.dataset.idx;
-    if (idx === undefined) return;
-    statsModalUpdateGoal(parseInt(idx, 10), e.target.dataset.field, e.target.value);
+    const cidx = e.target.dataset.cidx;
+    if (idx !== undefined) statsModalUpdateGoal(parseInt(idx, 10), e.target.dataset.field, e.target.value);
+    if (cidx !== undefined) statsModalUpdateCard(parseInt(cidx, 10), e.target.dataset.field, e.target.value);
   });
   body.addEventListener("click", e => {
     if (e.target.id === "ms-add-goal") statsModalAddGoal();
+    if (e.target.id === "ms-add-card") statsModalAddCard();
     if (e.target.id === "ms-save-stats") saveStatsModal();
     if (e.target.dataset.action === "remove") statsModalRemoveGoal(parseInt(e.target.dataset.idx, 10));
+    if (e.target.dataset.action === "remove-card") statsModalRemoveCard(parseInt(e.target.dataset.cidx, 10));
   });
 }
 
@@ -698,9 +763,16 @@ function wireStatsModalEvents() {
 function renderOverallStats() {
   const goals = {};
   const assists = {};
+  const cards = {};
 
   function tally(events) {
     (events || []).forEach(ev => {
+      if (ev.type === "yellowCard" || ev.type === "redCard") {
+        if (!cards[ev.playerId]) cards[ev.playerId] = { playerId: ev.playerId, teamId: ev.teamId, yellow: 0, red: 0 };
+        if (ev.type === "yellowCard") cards[ev.playerId].yellow += 1;
+        else cards[ev.playerId].red += 1;
+        return;
+      }
       const bucket = ev.type === "goal" ? goals : ev.type === "assist" ? assists : null;
       if (!bucket) return;
       if (!bucket[ev.playerId]) bucket[ev.playerId] = { playerId: ev.playerId, teamId: ev.teamId, count: 0 };
@@ -732,8 +804,26 @@ function renderOverallStats() {
       </div>`).join("");
   }
 
+  function renderCardBoard() {
+    const rows = Object.values(cards)
+      .map(row => ({ ...row, name: playerNameById(row.teamId, row.playerId), weight: row.yellow + row.red * 2 }))
+      .sort((a, b) => b.weight - a.weight)
+      .slice(0, 10);
+    if (!rows.length) return `<p class="empty-note">No cards recorded yet. Log them from a match's 📊 Stats button.</p>`;
+    const max = rows[0].weight || 1;
+    return rows.map((row, i) => `
+      <div class="bar-row">
+        <div class="bar-label">
+          <span class="bar-name"><span class="bar-rank ${i === 0 ? "top" : ""}">${i + 1}</span>${escapeHtml(row.name)} <span class="bar-team">${escapeHtml(teamName(row.teamId))}</span></span>
+          <span class="bar-value">${row.yellow ? `🟨${row.yellow} ` : ""}${row.red ? `🟥${row.red}` : ""}</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill cards" style="width:${(row.weight / max) * 100}%"></div></div>
+      </div>`).join("");
+  }
+
   document.getElementById("top-scorers").innerHTML = renderBoard(goals, "goals", "goals");
   document.getElementById("top-assists").innerHTML = renderBoard(assists, "assists", "assists");
+  document.getElementById("top-cards").innerHTML = renderCardBoard();
 }
 
 // ---------------------------------------------------------------------------
