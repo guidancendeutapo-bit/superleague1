@@ -9,53 +9,66 @@
 </head>
 <body>
 
-<a href="index.html" class="home-link" title="Back to Super League">⬅ Home</a>
-
-<header class="cup-header">
-  <div class="star-ball" aria-hidden="true">
-    <svg viewBox="0 0 100 100" width="46" height="46">
-      <polygon points="50,4 61,38 97,38 68,59 79,93 50,72 21,93 32,59 3,38 39,38"
-        fill="none" stroke="#d9c26a" stroke-width="3"/>
-    </svg>
+<div class="top-bar">
+  <div class="brand">
+    <div class="brand-icon" aria-hidden="true">
+      <svg viewBox="0 0 100 100" width="26" height="26">
+        <polygon points="50,4 61,38 97,38 68,59 79,93 50,72 21,93 32,59 3,38 39,38" fill="#0a0e1a"/>
+      </svg>
+    </div>
+    <div class="brand-text">
+      <div class="brand-title">Champions <span>Cup</span></div>
+      <div class="brand-sub">Group Stage — Road to the Final</div>
+    </div>
   </div>
-  <h1>CHAMPIONS <span>CUP</span></h1>
-  <p class="tagline">Group Stage &mdash; Road to the Final</p>
-
-  <div class="admin-bar">
-    <button id="admin-toggle-btn" class="admin-btn" type="button">🔒 Admin Mode</button>
-    <span id="admin-status" class="admin-status"></span>
-    <span id="sync-status" class="admin-status"></span>
+  <div class="nav-buttons">
+    <button class="nav-btn active" id="nav-groups" type="button" data-view="groups">🏆 Groups</button>
+    <button class="nav-btn" id="nav-stats" type="button" data-view="stats">📊 Stats</button>
+    <button class="nav-btn" id="nav-news" type="button" data-view="news">📰 News</button>
+    <a href="index.html" class="nav-btn home-btn" title="Back to Super League">🏠 Home</a>
+    <button id="admin-toggle-btn" class="nav-btn admin-btn" type="button">🔒 Admin</button>
+    <span id="sync-status" class="sync-status"></span>
   </div>
-</header>
+</div>
 
 <main>
-  <section class="admin-panel hidden" id="admin-panel"></section>
 
-  <section class="groups-wrap">
-    <div class="group-card" id="group-A"></div>
-    <div class="group-card" id="group-B"></div>
-  </section>
+  <!-- GROUPS VIEW: standings, fixtures, semis, final -->
+  <div class="view active" id="view-groups">
+    <section class="admin-panel hidden" id="admin-panel"></section>
 
-  <section class="fixtures-wrap">
-    <div class="fixtures-col" id="fixtures-A"></div>
-    <div class="fixtures-col" id="fixtures-B"></div>
-  </section>
+    <div class="knockout-section" id="knockout-section">
+      <section class="semifinal-wrap">
+        <h2>Semi-Finals</h2>
+        <div class="bracket" id="semifinals">
+          <p class="locked-msg">Semi-final draw unlocks once both groups finish.</p>
+        </div>
+      </section>
 
-  <section class="semifinal-wrap">
-    <h2>Semi-Finals</h2>
-    <div class="bracket" id="semifinals">
-      <p class="locked-msg">Semi-final draw unlocks once both groups finish.</p>
+      <section class="semifinal-wrap final-wrap">
+        <h2>Final</h2>
+        <div class="bracket" id="final-tie">
+          <p class="locked-msg">The final unlocks once both semi-finals are decided.</p>
+        </div>
+      </section>
     </div>
-  </section>
 
-  <section class="semifinal-wrap final-wrap">
-    <h2>Final</h2>
-    <div class="bracket" id="final-tie">
-      <p class="locked-msg">The final unlocks once both semi-finals are decided.</p>
-    </div>
-  </section>
+    <section class="groups-wrap">
+      <div class="group-card" id="group-A"></div>
+      <div class="group-card" id="group-B"></div>
+    </section>
 
-  <section class="stats-wrap">
+    <section class="fixtures-wrap">
+      <div class="fixtures-col" id="fixtures-A"></div>
+      <div class="fixtures-col" id="fixtures-B"></div>
+    </section>
+
+    <div class="reset-row" id="reset-row"></div>
+  </div>
+
+  <!-- STATS VIEW: top scorers / assists -->
+  <div class="view" id="view-stats">
+    <div class="page-title">📊 Cup Statistics</div>
     <div class="stats-grid">
       <div class="stats-card">
         <h2>🔥 Top Scorers</h2>
@@ -66,9 +79,17 @@
         <div id="top-assists"></div>
       </div>
     </div>
-  </section>
+  </div>
 
-  <div class="reset-row" id="reset-row"></div>
+  <!-- NEWS VIEW -->
+  <div class="view" id="view-news">
+    <div class="news-header-row">
+      <div class="page-title">📰 Cup News</div>
+      <button class="action-btn primary hidden" id="post-news-btn" type="button">📝 Post News</button>
+    </div>
+    <div id="news-container"></div>
+  </div>
+
 </main>
 
 <div class="modal-overlay" id="stats-modal">
@@ -76,6 +97,23 @@
     <button class="modal-close-btn" id="stats-modal-close" type="button">×</button>
     <div class="modal-title" id="stats-modal-title">Match</div>
     <div id="stats-modal-body"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="news-post-modal">
+  <div class="modal-box">
+    <button class="modal-close-btn" id="news-post-close" type="button">×</button>
+    <div class="modal-title">📝 Post News</div>
+    <input type="text" class="text-input" id="news-headline-input" placeholder="Headline..." maxlength="120">
+    <textarea class="text-input" id="news-body-input" placeholder="News content..." rows="5" style="resize:vertical;min-height:100px;"></textarea>
+    <button class="primary-btn" id="news-publish-btn" type="button">Publish</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="news-detail-modal">
+  <div class="modal-box">
+    <button class="modal-close-btn" id="news-detail-close" type="button">×</button>
+    <div id="news-detail-body"></div>
   </div>
 </div>
 

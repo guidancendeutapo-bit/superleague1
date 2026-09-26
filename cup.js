@@ -26,6 +26,7 @@ const GROUP_IDS = {
 const STORAGE_SCORES = "championsCupScores";
 const STORAGE_TEAMS = "championsCupTeams";
 const STORAGE_KO = "championsCupKnockout";
+const STORAGE_NEWS = "championsCupNews";
 const SESSION_ADMIN = "championsCupAdminUnlocked";
 
 // ---------------------------------------------------------------------------
@@ -130,11 +131,18 @@ function loadKOLocal() {
   try { return normalizeKO(JSON.parse(localStorage.getItem(STORAGE_KO))); }
   catch { return defaultKO(); }
 }
+function loadNewsLocal() {
+  try {
+    const val = JSON.parse(localStorage.getItem(STORAGE_NEWS));
+    return Array.isArray(val) ? val : [];
+  } catch { return []; }
+}
 function cacheLocally() {
   try {
     localStorage.setItem(STORAGE_TEAMS, JSON.stringify(teams));
     localStorage.setItem(STORAGE_SCORES, JSON.stringify(scores));
     localStorage.setItem(STORAGE_KO, JSON.stringify(koData));
+    localStorage.setItem(STORAGE_NEWS, JSON.stringify(newsList));
   } catch (e) { console.error("Could not update local cache:", e); }
 }
 
@@ -157,7 +165,7 @@ async function fetchRemoteState() {
   try {
     const { data, error } = await sbClient
       .from(SUPABASE_TABLE)
-      .select("teams,scores,ko")
+      .select("teams,scores,ko,news")
       .eq("id", SUPABASE_ROW_ID)
       .maybeSingle();
     if (error) throw error;
@@ -166,15 +174,16 @@ async function fetchRemoteState() {
       return {
         teams: normalizeTeams(data.teams),
         scores: data.scores || {},
-        ko: normalizeKO(data.ko)
+        ko: normalizeKO(data.ko),
+        news: Array.isArray(data.news) ? data.news : []
       };
     }
 
     // No row yet for this tournament — create it with defaults.
-    const initial = { id: SUPABASE_ROW_ID, teams: defaultTeams(), scores: {}, ko: defaultKO() };
+    const initial = { id: SUPABASE_ROW_ID, teams: defaultTeams(), scores: {}, ko: defaultKO(), news: [] };
     const { error: insertErr } = await sbClient.from(SUPABASE_TABLE).upsert(initial);
     if (insertErr) throw insertErr;
-    return { teams: initial.teams, scores: initial.scores, ko: initial.ko };
+    return { teams: initial.teams, scores: initial.scores, ko: initial.ko, news: initial.news };
   } catch (e) {
     console.error("Supabase load failed, falling back to local cache:", e);
     lastSupabaseError = (e && (e.message || e.error_description || e.hint)) || "unknown error";
@@ -205,10 +214,12 @@ async function pushColumn(column, value) {
 function saveTeams() { pushColumn("teams", teams); }
 function saveScores() { pushColumn("scores", scores); }
 function saveKO() { pushColumn("ko", koData); }
+function saveNews() { pushColumn("news", newsList); }
 
 let teams = defaultTeams();
 let scores = {};
 let koData = defaultKO();
+let newsList = [];
 const schedules = {
   A: generateRoundRobin(GROUP_IDS.A),
   B: generateRoundRobin(GROUP_IDS.B)
@@ -298,15 +309,12 @@ function groupComplete(group) {
 
 function renderAdminBar() {
   const btn = document.getElementById("admin-toggle-btn");
-  const status = document.getElementById("admin-status");
   if (isAdmin()) {
-    btn.textContent = "🔓 Admin Mode (click to lock)";
+    btn.textContent = "🔓 Admin (unlocked)";
     btn.classList.add("unlocked");
-    status.textContent = "Editing enabled";
   } else {
-    btn.textContent = "🔒 Admin Mode (click to unlock)";
+    btn.textContent = "🔒 Admin";
     btn.classList.remove("unlocked");
-    status.textContent = "View only";
   }
 }
 
@@ -384,7 +392,7 @@ function renderGroupTable(group) {
 
 function renderFixtures(group) {
   const el = document.getElementById(`fixtures-${group}`);
-  let html = `<h3>Group ${group} Fixtures</h3>`;
+  let html = `<h3>Group ${group} Fixtures</h3><div class="matchday-grid">`;
   const admin = isAdmin();
 
   schedules[group].forEach((round, rIdx) => {
@@ -406,6 +414,7 @@ function renderFixtures(group) {
     html += `</div>`;
   });
 
+  html += `</div>`;
   el.innerHTML = html;
 }
 
@@ -465,7 +474,10 @@ function renderKoTie(containerId, matchId, label, homeId, awayId, opts) {
 }
 
 function renderSemifinals() {
-  if (!groupComplete("A") || !groupComplete("B")) {
+  const ready = groupComplete("A") && groupComplete("B");
+  document.getElementById("view-groups").classList.toggle("knockout-ready", ready);
+
+  if (!ready) {
     document.getElementById("semifinals").innerHTML =
       `<p class="locked-msg">Semi-final draw unlocks once both groups finish.</p>`;
     return { sf1Winner: null, sf2Winner: null };
@@ -815,6 +827,80 @@ function stopConfetti() {
 }
 
 // ---------------------------------------------------------------------------
+// View switching (Groups / Stats / News tabs)
+// ---------------------------------------------------------------------------
+
+function switchView(view) {
+  document.querySelectorAll(".view").forEach(el => el.classList.remove("active"));
+  document.querySelectorAll(".nav-btn[data-view]").forEach(el => el.classList.remove("active"));
+  document.getElementById(`view-${view}`)?.classList.add("active");
+  document.getElementById(`nav-${view}`)?.classList.add("active");
+}
+
+// ---------------------------------------------------------------------------
+// News
+// ---------------------------------------------------------------------------
+
+function renderNews() {
+  const postBtn = document.getElementById("post-news-btn");
+  postBtn.classList.toggle("hidden", !isAdmin());
+
+  const container = document.getElementById("news-container");
+  if (!newsList.length) {
+    container.innerHTML = `<p class="empty-note">No news posts yet.</p>`;
+    return;
+  }
+  container.innerHTML = newsList.map(item => `
+    <div class="news-card" data-news-id="${item.id}">
+      ${isAdmin() ? `<button class="news-delete-btn" data-delete-news="${item.id}" title="Delete">×</button>` : ""}
+      <div class="news-headline">${escapeHtml(item.headline)}</div>
+      <div class="news-date">🗓️ ${escapeHtml(item.date)}</div>
+    </div>`).join("");
+}
+
+function openNewsPostModal() {
+  document.getElementById("news-headline-input").value = "";
+  document.getElementById("news-body-input").value = "";
+  document.getElementById("news-post-modal").classList.add("active");
+}
+function closeNewsPostModal() {
+  document.getElementById("news-post-modal").classList.remove("active");
+}
+function publishNews() {
+  if (!isAdmin()) return;
+  const headline = document.getElementById("news-headline-input").value.trim();
+  const body = document.getElementById("news-body-input").value.trim();
+  if (!headline || !body) { alert("Please fill in both headline and body."); return; }
+  newsList.unshift({
+    id: genId("news"),
+    headline,
+    body,
+    date: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+  });
+  saveNews();
+  closeNewsPostModal();
+  renderNews();
+}
+function deleteNews(id) {
+  if (!isAdmin() || !confirm("Delete this news post?")) return;
+  newsList = newsList.filter(item => item.id !== id);
+  saveNews();
+  renderNews();
+}
+function openNewsDetail(id) {
+  const item = newsList.find(n => n.id === id);
+  if (!item) return;
+  document.getElementById("news-detail-body").innerHTML = `
+    <div class="news-detail-headline">${escapeHtml(item.headline)}</div>
+    <div class="news-detail-text">${escapeHtml(item.body).replace(/\n/g, "<br>")}</div>
+    <div class="news-date">🗓️ ${escapeHtml(item.date)}</div>`;
+  document.getElementById("news-detail-modal").classList.add("active");
+}
+function closeNewsDetail() {
+  document.getElementById("news-detail-modal").classList.remove("active");
+}
+
+// ---------------------------------------------------------------------------
 // Full render + event wiring
 // ---------------------------------------------------------------------------
 
@@ -828,6 +914,7 @@ function renderAll() {
   const { sf1Winner, sf2Winner } = renderSemifinals();
   renderFinal(sf1Winner, sf2Winner);
   renderOverallStats();
+  renderNews();
   renderResetRow();
 }
 
@@ -863,6 +950,29 @@ function handlePenaltyChange(e) {
 }
 
 function wireStaticEvents() {
+  // Tab navigation
+  document.querySelectorAll(".nav-btn[data-view]").forEach(btn => {
+    btn.addEventListener("click", () => switchView(btn.dataset.view));
+  });
+
+  // News
+  document.getElementById("post-news-btn").addEventListener("click", openNewsPostModal);
+  document.getElementById("news-post-close").addEventListener("click", closeNewsPostModal);
+  document.getElementById("news-publish-btn").addEventListener("click", publishNews);
+  document.getElementById("news-post-modal").addEventListener("click", e => {
+    if (e.target.id === "news-post-modal") closeNewsPostModal();
+  });
+  document.getElementById("news-detail-close").addEventListener("click", closeNewsDetail);
+  document.getElementById("news-detail-modal").addEventListener("click", e => {
+    if (e.target.id === "news-detail-modal") closeNewsDetail();
+  });
+  document.getElementById("news-container").addEventListener("click", e => {
+    const delBtn = e.target.closest("[data-delete-news]");
+    if (delBtn) { deleteNews(delBtn.dataset.deleteNews); return; }
+    const card = e.target.closest("[data-news-id]");
+    if (card) openNewsDetail(card.dataset.newsId);
+  });
+
   // Admin toggle
   document.getElementById("admin-toggle-btn").addEventListener("click", () => {
     if (isAdmin()) {
@@ -947,6 +1057,7 @@ async function init() {
     teams = remote.teams;
     scores = remote.scores;
     koData = remote.ko;
+    newsList = remote.news;
     cacheLocally();
     cloudConnected = true;
     setSyncStatus("☁ Synced", true);
@@ -954,6 +1065,7 @@ async function init() {
     teams = loadTeamsLocal();
     scores = loadScoresLocal();
     koData = loadKOLocal();
+    newsList = loadNewsLocal();
     cloudConnected = false;
     setSyncStatus(`⚠ Offline — ${lastSupabaseError || "showing local copy only"}`, false);
   }
