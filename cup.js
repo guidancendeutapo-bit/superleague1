@@ -27,6 +27,8 @@ const STORAGE_SCORES = "championsCupScores";
 const STORAGE_TEAMS = "championsCupTeams";
 const STORAGE_KO = "championsCupKnockout";
 const STORAGE_NEWS = "championsCupNews";
+const STORAGE_CELEBRATIONS = "championsCupCelebrations";
+const CELEBRATION_JOINED_PREFIX = "championsCupJoinedCelebration:";
 const SESSION_ADMIN = "championsCupAdminUnlocked";
 
 // ---------------------------------------------------------------------------
@@ -138,12 +140,19 @@ function loadNewsLocal() {
     return Array.isArray(val) ? val : [];
   } catch { return []; }
 }
+function loadCelebrationsLocal() {
+  try {
+    const val = JSON.parse(localStorage.getItem(STORAGE_CELEBRATIONS));
+    return (val && typeof val === "object") ? val : {};
+  } catch { return {}; }
+}
 function cacheLocally() {
   try {
     localStorage.setItem(STORAGE_TEAMS, JSON.stringify(teams));
     localStorage.setItem(STORAGE_SCORES, JSON.stringify(scores));
     localStorage.setItem(STORAGE_KO, JSON.stringify(koData));
     localStorage.setItem(STORAGE_NEWS, JSON.stringify(newsList));
+    localStorage.setItem(STORAGE_CELEBRATIONS, JSON.stringify(celebrations));
   } catch (e) { console.error("Could not update local cache:", e); }
 }
 
@@ -166,7 +175,7 @@ async function fetchRemoteState() {
   try {
     const { data, error } = await sbClient
       .from(SUPABASE_TABLE)
-      .select("teams,scores,ko,news")
+      .select("teams,scores,ko,news,celebrations")
       .eq("id", SUPABASE_ROW_ID)
       .maybeSingle();
     if (error) throw error;
@@ -176,15 +185,16 @@ async function fetchRemoteState() {
         teams: normalizeTeams(data.teams),
         scores: data.scores || {},
         ko: normalizeKO(data.ko),
-        news: Array.isArray(data.news) ? data.news : []
+        news: Array.isArray(data.news) ? data.news : [],
+        celebrations: (data.celebrations && typeof data.celebrations === "object") ? data.celebrations : {}
       };
     }
 
     // No row yet for this tournament — create it with defaults.
-    const initial = { id: SUPABASE_ROW_ID, teams: defaultTeams(), scores: {}, ko: defaultKO(), news: [] };
+    const initial = { id: SUPABASE_ROW_ID, teams: defaultTeams(), scores: {}, ko: defaultKO(), news: [], celebrations: {} };
     const { error: insertErr } = await sbClient.from(SUPABASE_TABLE).upsert(initial);
     if (insertErr) throw insertErr;
-    return { teams: initial.teams, scores: initial.scores, ko: initial.ko, news: initial.news };
+    return { teams: initial.teams, scores: initial.scores, ko: initial.ko, news: initial.news, celebrations: initial.celebrations };
   } catch (e) {
     console.error("Supabase load failed, falling back to local cache:", e);
     lastSupabaseError = (e && (e.message || e.error_description || e.hint)) || "unknown error";
@@ -216,11 +226,13 @@ function saveTeams() { pushColumn("teams", teams); }
 function saveScores() { pushColumn("scores", scores); }
 function saveKO() { pushColumn("ko", koData); }
 function saveNews() { pushColumn("news", newsList); }
+function saveCelebrations() { pushColumn("celebrations", celebrations); }
 
 let teams = defaultTeams();
 let scores = {};
 let koData = defaultKO();
 let newsList = [];
+let celebrations = {};
 const schedules = {
   A: generateRoundRobin(GROUP_IDS.A),
   B: generateRoundRobin(GROUP_IDS.B)
@@ -519,7 +531,7 @@ function renderFinal(sf1Winner, sf2Winner) {
     if (!koData.final.celebrated) {
       koData.final.celebrated = true;
       saveKO();
-      celebrate(teamName(champion));
+      celebrate(champion);
     }
     renderTrophyReplay(champion);
   } else {
@@ -862,8 +874,14 @@ function renderResetRow() {
     if (!confirm("Reset all scores, stats and the knockout bracket? Team names and rosters are kept.")) return;
     scores = {};
     koData = defaultKO();
+    celebrations = {};
     saveScores();
     saveKO();
+    saveCelebrations();
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(CELEBRATION_JOINED_PREFIX))
+      .forEach(k => localStorage.removeItem(k));
+    document.getElementById("celebration-toast").classList.add("hidden");
     renderAll();
   });
 }
@@ -874,32 +892,56 @@ function renderResetRow() {
 
 let confettiFrame = null;
 
-function celebrate(name) {
+function celebrate(teamId) {
+  const name = teamName(teamId);
   document.getElementById("celebration-team").textContent = name;
   const overlay = document.getElementById("celebration-overlay");
   overlay.classList.remove("hidden");
   startConfetti();
+  registerCelebration(teamId, name);
 }
 
 function closeCelebration() {
   document.getElementById("celebration-overlay").classList.add("hidden");
+  document.getElementById("celebration-toast").classList.add("hidden");
   stopConfetti();
 }
 
+function registerCelebration(teamId, name) {
+  const key = CELEBRATION_JOINED_PREFIX + teamId;
+  const alreadyJoined = localStorage.getItem(key) === "1";
+  if (!alreadyJoined) {
+    celebrations[teamId] = (celebrations[teamId] || 0) + 1;
+    saveCelebrations();
+    try { localStorage.setItem(key, "1"); } catch (e) { /* ignore */ }
+  }
+  renderCelebrationToast(teamId, name);
+}
+
+function renderCelebrationToast(teamId, name) {
+  const count = celebrations[teamId] || 1;
+  document.getElementById("toast-team-name").textContent = name;
+  document.getElementById("toast-count").textContent = `${count} fan${count === 1 ? "" : "s"}`;
+  document.getElementById("celebration-toast").classList.remove("hidden");
+}
+
+// Confetti is scoped to the celebration card itself, not the full screen —
+// the canvas is sized to the card and clipped by its rounded corners.
 function startConfetti() {
+  const card = document.getElementById("celebration-card");
   const canvas = document.getElementById("confetti-canvas");
   const ctx = canvas.getContext("2d");
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  canvas.width = card.clientWidth;
+  canvas.height = card.clientHeight;
 
   const colors = ["#d8b45a", "#3f6bff", "#ffffff", "#34d399", "#dce3f7"];
-  const particles = Array.from({ length: 160 }, () => ({
+  const particles = Array.from({ length: 90 }, () => ({
     x: Math.random() * canvas.width,
     y: -20 - Math.random() * canvas.height * 0.5,
-    size: 5 + Math.random() * 6,
+    size: 4 + Math.random() * 5,
     color: colors[Math.floor(Math.random() * colors.length)],
-    vy: 2 + Math.random() * 3,
-    vx: -1.5 + Math.random() * 3,
+    vy: 1.4 + Math.random() * 2.2,
+    vx: -1 + Math.random() * 2,
     rot: Math.random() * 360,
     vr: -6 + Math.random() * 12
   }));
@@ -912,6 +954,8 @@ function startConfetti() {
       p.y += p.vy;
       p.rot += p.vr;
       if (p.y > canvas.height + 20) { p.y = -20; p.x = Math.random() * canvas.width; }
+      if (p.x < -20) p.x = canvas.width + 20;
+      if (p.x > canvas.width + 20) p.x = -20;
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate((p.rot * Math.PI) / 180);
@@ -1159,7 +1203,7 @@ function wireStaticEvents() {
   document.getElementById("celebration-close-btn").addEventListener("click", closeCelebration);
   document.getElementById("trophy-fab").addEventListener("click", e => {
     const trophyBtn = e.target.closest("#trophy-replay-btn");
-    if (trophyBtn) celebrate(teamName(trophyBtn.dataset.champion));
+    if (trophyBtn) celebrate(trophyBtn.dataset.champion);
   });
 }
 
@@ -1171,6 +1215,7 @@ async function init() {
     scores = remote.scores;
     koData = remote.ko;
     newsList = remote.news;
+    celebrations = remote.celebrations;
     cacheLocally();
     cloudConnected = true;
     setSyncStatus("☁ Synced", true);
@@ -1179,6 +1224,7 @@ async function init() {
     scores = loadScoresLocal();
     koData = loadKOLocal();
     newsList = loadNewsLocal();
+    celebrations = loadCelebrationsLocal();
     cloudConnected = false;
     setSyncStatus(`⚠ Offline — ${lastSupabaseError || "showing local copy only"}`, false);
   }

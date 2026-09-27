@@ -131,12 +131,22 @@
 <div class="trophy-fab" id="trophy-fab"></div>
 
 <div class="celebration-overlay hidden" id="celebration-overlay">
-  <canvas id="confetti-canvas"></canvas>
-  <div class="celebration-content">
-    <div class="trophy-emoji">🏆</div>
-    <h2 id="celebration-team"></h2>
-    <p class="celebration-sub">CHAMPIONS</p>
-    <button id="celebration-close-btn" type="button">Close</button>
+  <div class="celebration-card" id="celebration-card">
+    <canvas id="confetti-canvas"></canvas>
+    <button id="celebration-close-btn" type="button" title="Close">×</button>
+    <div class="celebration-content">
+      <div class="trophy-emoji">🏆</div>
+      <p class="celebration-label">Champions Cup Champion</p>
+      <h2 id="celebration-team"></h2>
+    </div>
+  </div>
+</div>
+
+<div class="celebration-toast hidden" id="celebration-toast">
+  <div class="toast-icon">🎉</div>
+  <div class="toast-text">
+    <div class="toast-title">Celebrate <span id="toast-team-name"></span>!</div>
+    <div class="toast-sub"><span id="toast-count"></span> have celebrated · you're in! ✓</div>
   </div>
 </div>
 
