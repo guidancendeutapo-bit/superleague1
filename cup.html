@@ -38,10 +38,10 @@
     <section class="admin-panel hidden" id="admin-panel"></section>
 
     <div class="knockout-section" id="knockout-section">
-      <section class="semifinal-wrap">
-        <h2>Semi-Finals</h2>
-        <div class="bracket" id="semifinals">
-          <p class="locked-msg">Semi-final draw unlocks once both groups finish.</p>
+      <section class="semifinal-wrap final-wrap">
+        <h2>Final</h2>
+        <div class="bracket" id="final-tie">
+          <p class="locked-msg">The final unlocks once both semi-finals are decided.</p>
         </div>
       </section>
 
@@ -52,12 +52,11 @@
         </div>
       </section>
 
-      <section class="semifinal-wrap final-wrap">
-        <h2>Final</h2>
-        <div class="bracket" id="final-tie">
-          <p class="locked-msg">The final unlocks once both semi-finals are decided.</p>
+      <section class="semifinal-wrap">
+        <h2>Semi-Finals</h2>
+        <div class="bracket" id="semifinals">
+          <p class="locked-msg">Semi-final draw unlocks once both groups finish.</p>
         </div>
-        <div class="trophy-replay-row" id="trophy-replay-row"></div>
       </section>
     </div>
 
@@ -128,6 +127,8 @@
     <div id="news-detail-body"></div>
   </div>
 </div>
+
+<div class="trophy-fab" id="trophy-fab"></div>
 
 <div class="celebration-overlay hidden" id="celebration-overlay">
   <canvas id="confetti-canvas"></canvas>

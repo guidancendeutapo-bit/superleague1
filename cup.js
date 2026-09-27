@@ -523,15 +523,16 @@ function renderFinal(sf1Winner, sf2Winner) {
     }
     renderTrophyReplay(champion);
   } else {
-    document.getElementById("trophy-replay-row").innerHTML = "";
+    document.getElementById("trophy-fab").innerHTML = "";
   }
   return champion;
 }
 
 function renderTrophyReplay(championId) {
-  document.getElementById("trophy-replay-row").innerHTML = `
-    <button type="button" class="trophy-replay-btn" id="trophy-replay-btn" data-champion="${championId}">
-      🏆 ${escapeHtml(teamName(championId))} are Champions — click to celebrate
+  document.getElementById("trophy-fab").innerHTML = `
+    <button type="button" class="trophy-fab-btn" id="trophy-replay-btn" data-champion="${championId}" title="Celebrate the champions">
+      <span class="trophy-fab-icon">🏆</span>
+      <span class="trophy-fab-label">${escapeHtml(teamName(championId))}<br><span class="trophy-fab-sub">Champions</span></span>
     </button>`;
 }
 
@@ -1156,7 +1157,7 @@ function wireStaticEvents() {
 
   // Celebration close
   document.getElementById("celebration-close-btn").addEventListener("click", closeCelebration);
-  document.querySelector("main").addEventListener("click", e => {
+  document.getElementById("trophy-fab").addEventListener("click", e => {
     const trophyBtn = e.target.closest("#trophy-replay-btn");
     if (trophyBtn) celebrate(teamName(trophyBtn.dataset.champion));
   });

@@ -440,22 +440,42 @@ table.stats-table-main tr.top-scorer { background: rgba(251,191,36,0.1); font-we
   font-size: 11px;
 }
 .sf-tie .sf-stat-toggle { margin-top: 10px; width: 100%; }
-.final-wrap { margin-top: 36px; }
+.final-wrap { margin-top: 0; }
 .final-wrap .sf-tie { min-width: 250px; border-color: var(--gold); }
-.third-place-wrap { margin-top: 30px; }
+.knockout-section > section + section { margin-top: 30px; }
 .third-place-wrap h2 { font-size: 16px; color: var(--muted); }
 .third-place-wrap .sf-tie { min-width: 200px; padding: 12px 16px; }
 .third-place-wrap .sf-team { font-size: 13px; padding: 6px 12px; }
 
-.trophy-replay-row { margin-top: 18px; }
-.trophy-replay-btn {
+.trophy-fab { position: fixed; right: 18px; top: 50%; transform: translateY(-50%); z-index: 150; }
+.trophy-fab-btn {
+  display: flex; align-items: center; gap: 10px;
   background: linear-gradient(135deg, #8a6a1e, var(--gold), #f2d68a);
-  border: none; color: #1a1206; font-weight: 700; font-family: 'Rajdhani', sans-serif;
-  font-size: 15px; letter-spacing: 0.03em; padding: 12px 26px; border-radius: 999px;
-  cursor: pointer; box-shadow: 0 4px 22px rgba(216,180,90,0.45);
-  transition: transform 0.15s ease;
+  border: none; border-radius: 999px; cursor: pointer;
+  padding: 10px 18px 10px 10px;
+  box-shadow: 0 6px 26px rgba(216,180,90,0.5);
+  animation: trophy-fab-pulse 2.4s ease-in-out infinite;
 }
-.trophy-replay-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(216,180,90,0.6); }
+.trophy-fab-btn:hover { animation-play-state: paused; transform: scale(1.05); }
+.trophy-fab-icon {
+  width: 34px; height: 34px; border-radius: 50%; background: rgba(0,0,0,0.18);
+  display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
+}
+.trophy-fab-label {
+  color: #1a1206; font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 13px;
+  line-height: 1.25; text-align: left; white-space: nowrap;
+}
+.trophy-fab-sub { font-size: 10px; font-weight: 600; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.06em; }
+@keyframes trophy-fab-pulse {
+  0%, 100% { box-shadow: 0 6px 26px rgba(216,180,90,0.5); }
+  50% { box-shadow: 0 6px 36px rgba(216,180,90,0.85); }
+}
+@media (max-width: 720px) {
+  .trophy-fab { right: 10px; top: auto; bottom: 18px; transform: none; }
+  .trophy-fab-label { display: none; }
+  .trophy-fab-btn { padding: 12px; }
+  .trophy-fab-icon { width: 30px; height: 30px; }
+}
 
 .stats-wrap { margin-top: 36px; }
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 900px; margin: 0 auto; }
