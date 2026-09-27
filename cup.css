@@ -442,6 +442,20 @@ table.stats-table-main tr.top-scorer { background: rgba(251,191,36,0.1); font-we
 .sf-tie .sf-stat-toggle { margin-top: 10px; width: 100%; }
 .final-wrap { margin-top: 36px; }
 .final-wrap .sf-tie { min-width: 250px; border-color: var(--gold); }
+.third-place-wrap { margin-top: 30px; }
+.third-place-wrap h2 { font-size: 16px; color: var(--muted); }
+.third-place-wrap .sf-tie { min-width: 200px; padding: 12px 16px; }
+.third-place-wrap .sf-team { font-size: 13px; padding: 6px 12px; }
+
+.trophy-replay-row { margin-top: 18px; }
+.trophy-replay-btn {
+  background: linear-gradient(135deg, #8a6a1e, var(--gold), #f2d68a);
+  border: none; color: #1a1206; font-weight: 700; font-family: 'Rajdhani', sans-serif;
+  font-size: 15px; letter-spacing: 0.03em; padding: 12px 26px; border-radius: 999px;
+  cursor: pointer; box-shadow: 0 4px 22px rgba(216,180,90,0.45);
+  transition: transform 0.15s ease;
+}
+.trophy-replay-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(216,180,90,0.6); }
 
 .stats-wrap { margin-top: 36px; }
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 900px; margin: 0 auto; }

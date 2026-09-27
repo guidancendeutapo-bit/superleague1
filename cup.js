@@ -100,6 +100,7 @@ function defaultKO() {
   return {
     sf1: { home: "", away: "", events: [], penaltyWinner: null },
     sf2: { home: "", away: "", events: [], penaltyWinner: null },
+    third: { home: "", away: "", events: [], penaltyWinner: null },
     final: { home: "", away: "", events: [], penaltyWinner: null, celebrated: false }
   };
 }
@@ -436,12 +437,13 @@ function renderKoTie(containerId, matchId, label, homeId, awayId, opts) {
   const el = document.getElementById(containerId);
   if (!homeId || !awayId) {
     el.innerHTML = `<p class="locked-msg">${opts.lockedMsg || "Not yet decided."}</p>`;
-    return null;
+    return { winner: null, loser: null };
   }
   const admin = isAdmin();
   const entry = koData[matchId];
   const result = koResult(entry);
   const winnerId = result === "home" ? homeId : result === "away" ? awayId : null;
+  const loserId = winnerId ? (winnerId === homeId ? awayId : homeId) : null;
   const showPenalty = result === "draw";
 
   const homeCls = winnerId === homeId ? "sf-team is-winner" : "sf-team";
@@ -470,7 +472,7 @@ function renderKoTie(containerId, matchId, label, homeId, awayId, opts) {
         data-home="${homeId}" data-away="${awayId}">📊 Match Stats</button>
     </div>`;
 
-  return winnerId;
+  return { winner: winnerId, loser: loserId };
 }
 
 function renderSemifinals() {
@@ -480,7 +482,7 @@ function renderSemifinals() {
   if (!ready) {
     document.getElementById("semifinals").innerHTML =
       `<p class="locked-msg">Semi-final draw unlocks once both groups finish.</p>`;
-    return { sf1Winner: null, sf2Winner: null };
+    return { sf1Winner: null, sf2Winner: null, sf1Loser: null, sf2Loser: null };
   }
   const a = computeStandings("A");
   const b = computeStandings("B");
@@ -488,9 +490,20 @@ function renderSemifinals() {
   const container = document.getElementById("semifinals");
   container.innerHTML = `<div id="sf1-tie"></div><div id="sf2-tie"></div>`;
 
-  const sf1Winner = renderKoTie("sf1-tie", "sf1", "Semi-Final 1", a[0].team, b[1].team);
-  const sf2Winner = renderKoTie("sf2-tie", "sf2", "Semi-Final 2", b[0].team, a[1].team);
-  return { sf1Winner, sf2Winner };
+  const sf1 = renderKoTie("sf1-tie", "sf1", "Semi-Final 1", a[0].team, b[1].team);
+  const sf2 = renderKoTie("sf2-tie", "sf2", "Semi-Final 2", b[0].team, a[1].team);
+  return { sf1Winner: sf1.winner, sf2Winner: sf2.winner, sf1Loser: sf1.loser, sf2Loser: sf2.loser };
+}
+
+function renderThirdPlace(sf1Loser, sf2Loser) {
+  const container = document.getElementById("third-place");
+  if (!sf1Loser || !sf2Loser) {
+    container.innerHTML = `<p class="locked-msg">The third place play-off unlocks once both semi-finals are decided.</p>`;
+    return null;
+  }
+  container.innerHTML = `<div id="third-place-tie"></div>`;
+  const { winner } = renderKoTie("third-place-tie", "third", "Third Place Play-off", sf1Loser, sf2Loser);
+  return winner;
 }
 
 function renderFinal(sf1Winner, sf2Winner) {
@@ -500,7 +513,7 @@ function renderFinal(sf1Winner, sf2Winner) {
     return null;
   }
   container.innerHTML = `<div id="final-real-tie"></div>`;
-  const champion = renderKoTie("final-real-tie", "final", "Final", sf1Winner, sf2Winner);
+  const { winner: champion } = renderKoTie("final-real-tie", "final", "Final", sf1Winner, sf2Winner);
 
   if (champion) {
     if (!koData.final.celebrated) {
@@ -508,8 +521,18 @@ function renderFinal(sf1Winner, sf2Winner) {
       saveKO();
       celebrate(teamName(champion));
     }
+    renderTrophyReplay(champion);
+  } else {
+    document.getElementById("trophy-replay-row").innerHTML = "";
   }
   return champion;
+}
+
+function renderTrophyReplay(championId) {
+  document.getElementById("trophy-replay-row").innerHTML = `
+    <button type="button" class="trophy-replay-btn" id="trophy-replay-btn" data-champion="${championId}">
+      🏆 ${escapeHtml(teamName(championId))} are Champions — click to celebrate
+    </button>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -868,7 +891,7 @@ function startConfetti() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 
-  const colors = ["#d9c26a", "#2652c9", "#eef1fa", "#1f7a3f", "#b9c2d0"];
+  const colors = ["#d8b45a", "#3f6bff", "#ffffff", "#34d399", "#dce3f7"];
   const particles = Array.from({ length: 160 }, () => ({
     x: Math.random() * canvas.width,
     y: -20 - Math.random() * canvas.height * 0.5,
@@ -880,10 +903,8 @@ function startConfetti() {
     vr: -6 + Math.random() * 12
   }));
 
-  const start = performance.now();
-  const DURATION = 5000;
-
-  function frame(now) {
+  // Runs indefinitely, recycling particles that fall off-screen, until stopConfetti() is called.
+  function frame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     particles.forEach(p => {
       p.x += p.vx;
@@ -897,12 +918,7 @@ function startConfetti() {
       ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
       ctx.restore();
     });
-    if (now - start < DURATION) {
-      confettiFrame = requestAnimationFrame(frame);
-    } else {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      confettiFrame = null;
-    }
+    confettiFrame = requestAnimationFrame(frame);
   }
   if (confettiFrame) cancelAnimationFrame(confettiFrame);
   confettiFrame = requestAnimationFrame(frame);
@@ -994,6 +1010,12 @@ function closeNewsDetail() {
 // Full render + event wiring
 // ---------------------------------------------------------------------------
 
+function renderKnockoutStage() {
+  const { sf1Winner, sf2Winner, sf1Loser, sf2Loser } = renderSemifinals();
+  renderThirdPlace(sf1Loser, sf2Loser);
+  renderFinal(sf1Winner, sf2Winner);
+}
+
 function renderAll() {
   renderAdminBar();
   renderAdminPanel();
@@ -1001,8 +1023,7 @@ function renderAll() {
   renderGroupTable("B");
   renderFixtures("A");
   renderFixtures("B");
-  const { sf1Winner, sf2Winner } = renderSemifinals();
-  renderFinal(sf1Winner, sf2Winner);
+  renderKnockoutStage();
   renderOverallStats();
   renderNews();
   renderResetRow();
@@ -1015,8 +1036,7 @@ function handleGroupScoreInput(e) {
   scores[key][side] = e.target.value;
   saveScores();
   renderGroupTable(key.startsWith("A") ? "A" : "B");
-  const { sf1Winner, sf2Winner } = renderSemifinals();
-  renderFinal(sf1Winner, sf2Winner);
+  renderKnockoutStage();
   renderOverallStats();
 }
 
@@ -1025,8 +1045,7 @@ function handleKoScoreChange(e) {
   const side = e.target.dataset.side;
   koData[matchId][side] = e.target.value;
   saveKO();
-  const { sf1Winner, sf2Winner } = renderSemifinals();
-  renderFinal(sf1Winner, sf2Winner);
+  renderKnockoutStage();
   renderOverallStats();
 }
 
@@ -1034,8 +1053,7 @@ function handlePenaltyChange(e) {
   const matchId = e.target.dataset.match;
   koData[matchId].penaltyWinner = e.target.value || null;
   saveKO();
-  const { sf1Winner, sf2Winner } = renderSemifinals();
-  renderFinal(sf1Winner, sf2Winner);
+  renderKnockoutStage();
   renderOverallStats();
 }
 
@@ -1138,6 +1156,10 @@ function wireStaticEvents() {
 
   // Celebration close
   document.getElementById("celebration-close-btn").addEventListener("click", closeCelebration);
+  document.querySelector("main").addEventListener("click", e => {
+    const trophyBtn = e.target.closest("#trophy-replay-btn");
+    if (trophyBtn) celebrate(teamName(trophyBtn.dataset.champion));
+  });
 }
 
 async function init() {
